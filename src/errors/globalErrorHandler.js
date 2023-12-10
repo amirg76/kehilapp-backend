@@ -1,4 +1,4 @@
-import errorManagement from './utils/errorMangement.js'; // Update path as needed
+import errorManagement from './utils/errorManagement.js'; // Update path as needed
 import handleErrors from './utils/errorHandlers.js'; // Update path as needed
 
 const globalErrorHandler = (error, req, res, next) => {

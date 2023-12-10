@@ -8,7 +8,7 @@ import {
 } from '../../messages/dataAccess/messageRepository.js';
 // error handlers
 import AppError from '../../../errors/AppError.js';
-import errorManagement from '../../../errors/utils/errorMangement.js';
+import errorManagement from '../../../errors/utils/errorManagement.js';
 
 // get all messages
 export const getMessages = async (req, res, next) => {

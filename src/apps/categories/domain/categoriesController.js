@@ -8,7 +8,7 @@ import {
 } from '../../categories/dataAccess/categoryRepository.js';
 // error handlers
 import AppError from '../../../errors/AppError.js';
-import errorManagement from '../../../errors/utils/errorMangement.js';
+import errorManagement from '../../../errors/utils/errorManagement.js';
 
 // get all categories
 // TODO: check req.query!
