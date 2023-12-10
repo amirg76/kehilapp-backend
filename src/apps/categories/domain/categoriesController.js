@@ -11,7 +11,6 @@ import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 
 // get all categories
-// TODO: check req.query!
 export const getCategories = async (req, res, next) => {
   const { filterBy } = req.query;
   const categories = await getCategoriesFromDb(filterBy);
@@ -71,7 +70,6 @@ export const updateCategory = async (req, res) => {
 };
 
 // delete a message
-//TODO: do we need to return the deleted msg?
 export const deleteCategory = async (req, res) => {
   const { id } = req.params;
   const category = await deleteCategoryInDb(id);

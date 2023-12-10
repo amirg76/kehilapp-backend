@@ -70,7 +70,6 @@ export const updateMessage = async (req, res) => {
 };
 
 // delete a message
-// TODO: do we need to return the deleted msg?
 export const deleteMessage = async (req, res) => {
   const { id } = req.params;
   const message = await deleteMessageInDb(id);
