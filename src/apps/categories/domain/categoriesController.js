@@ -12,8 +12,7 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 
 // get all categories
 export const getCategories = async (req, res, next) => {
-  const { filterBy } = req.query;
-  const categories = await getCategoriesFromDb(filterBy);
+  const categories = await getCategoriesFromDb();
   if (!categories) {
     return next(
       new AppError(
