@@ -6,6 +6,8 @@ export const commonErrors = {
   authorizationError: { message: 'Forbidden', code: 403 },
   resourceNotFound: { message: 'Not Found', code: 404 },
   databaseError: { message: 'Database Error', code: 500 },
+  databaseDisconnectedError: { message: 'Database disconnected', code: 500 },
+  databaseClosingError: { message: 'Error closing database', code: 500 },
   duplicateResource: { message: 'Duplicate Resource', code: 409 },
   validationError: { message: 'Validation Error', code: 400 },
   rateLimitExceeded: { message: 'Rate Limit Exceeded', code: 429 },

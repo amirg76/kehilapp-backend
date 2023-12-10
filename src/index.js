@@ -9,7 +9,7 @@ config({ path: 'src/config/' });
 connectDB()
   .then(() => console.log('DB connected!'))
   .catch(() => {
-    throw new AppError(errorManagement.commonErrors.da, 500, true);
+    throw new AppError(errorManagement.commonErrors.databaseError.message, errorManagement.commonErrors.databaseError.code, true);
   });
 const httpServer = createServer(app);
 httpServer.listen(process.env.PORT || 5000, () => {
