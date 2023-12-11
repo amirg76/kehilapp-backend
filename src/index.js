@@ -12,7 +12,7 @@ connectDB()
     throw new AppError(errorManagement.commonErrors.databaseError.message, errorManagement.commonErrors.databaseError.code, true);
   });
 const httpServer = createServer(app);
-httpServer.listen(process.env.PORT || 5000, () => {
+httpServer.listen(process.env.PORT || 5001, () => {
   if (process.env.NODE_ENV === 'local') {
     console.log('Node running on Local mode ...');
   } else if (process.env.NODE_ENV === 'dev') {
