@@ -1,6 +1,6 @@
 import AppError from './AppError.js'; // Adjust the import path as needed
 import handleErrors from './utils/errorHandlers.js';
-import errorManagement from './utils/errorMangement.js';
+import errorManagement from './utils/errorManagement.js';
 const errorDelegatorMiddleware = (error, req, res, next) => {
   if (error instanceof AppError) {
     next(error);
