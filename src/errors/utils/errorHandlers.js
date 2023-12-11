@@ -1,22 +1,27 @@
 import { isCelebrateError } from 'celebrate';
+import AppError from '../AppError.js';
+import errorManagement from './errorManagement.js';
 
-
-const handleErrors = (error, res) => {
+const handleErrors = (error, next) => {
   // Handle celebrate errors
   if (isCelebrateError(error)) {
-    return res.status(400).json({ error: 'Validation error' });
+    next(
+      new AppError(
+        errorManagement.commonErrors.validationError.message,
+        errorManagement.commonErrors.validationError.code,
+      ),
+    );
   }
 
   // Handle Mongoose CastErrors
   if (error.name === 'CastError') {
-    const message = 'Invalid ID format';
-    return res.status(400).json({ error: message });
+    next(new AppError(errorManagement.commonErrors.castError.message, errorManagement.commonErrors.castError.code));
   }
 
   // Handle other specific errors here...
 
-  // If no specific handling, return false
-  return false;
+  // If no specific handling, call for the app error with false flag
+  next(new AppError(error.message, errorManagement.commonErrors.internalServerError.code, false));
 };
 
 export default handleErrors;

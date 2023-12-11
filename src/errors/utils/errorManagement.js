@@ -1,5 +1,3 @@
-
-
 export const commonErrors = {
   invalidInput: { message: 'Invalid Input', code: 400 },
   authenticationError: { message: 'Unauthorized', code: 401 },
@@ -13,6 +11,7 @@ export const commonErrors = {
   rateLimitExceeded: { message: 'Rate Limit Exceeded', code: 429 },
   serviceUnavailable: { message: 'Service Unavailable', code: 503 },
   badRequest: { message: 'Bad Request', code: 400 },
+  castError: { message: 'Invalid ID Format', code: 400 },
   notAcceptable: { message: 'Not Acceptable', code: 406 },
   requestTimeout: { message: 'Request Timeout', code: 408 },
   conflict: { message: 'Conflict', code: 409 },
@@ -48,7 +47,7 @@ const errorManagement = {
     DATABASE: 'Database',
     EXTERNAL_SERVICE: 'ExternalService',
     AUTHENTICATION_SERVICE: 'AuthenticationService',
-  }
+  },
   // ... other error management utilities
 };
 
