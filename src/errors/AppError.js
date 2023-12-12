@@ -1,6 +1,4 @@
 class AppError extends Error {
-  statusCode;
-  isOperational;
 
   constructor(message, statusCode, isOperational) {
     super(message);
