@@ -25,6 +25,10 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/messages', messagesRoutes);
 app.use('/api/categories', categoriesRoutes);
+// deployment test
+app.get('/api/aws-test', (req, res) => {
+  res.status(200).json({ msg: 'Hello World!' });
+});
 
 app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404, true));
