@@ -32,7 +32,7 @@ app.get('/api/aws-test', (req, res) => {
 
 // aws healtcheck
 app.use('/api/healthcheck', (req, res) => {
-  res.status(200).json({ status: 'ok', test: 'auto update test' });
+  res.status(200).send('ok');
 });
 app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404, true));
