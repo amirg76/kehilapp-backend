@@ -12,6 +12,7 @@ import {
 import {
   getMessages,
   getMessageById,
+  getMessageByCategory,
   createMessage,
   updateMessage,
   deleteMessage,
@@ -33,6 +34,9 @@ router.get(
   // auth,
   getMessageById,
 );
+
+//get messages by category
+router.get('/category/:id', getMessageByCategory);
 
 //create new message
 router.post(

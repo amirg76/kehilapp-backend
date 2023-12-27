@@ -5,6 +5,7 @@ import {
   addMessageToDb,
   updateMessageInDb,
   deleteMessageInDb,
+  getMessageByCategoryFromDb,
 } from '../../messages/dataAccess/messageRepository.js';
 // error handlers
 import AppError from '../../../errors/AppError.js';
@@ -49,6 +50,25 @@ export const getMessageById = async (req, res, next) => {
     data: message,
   });
 };
+
+export const getMessageByCategory = async (req, res, next) => {
+  const { id } = req.params;
+
+  const messages = await getMessageByCategoryFromDb(id);
+  if (!messages) {
+    return next(
+      new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+      ),
+    );
+  }
+  res.status(200).json({
+    status: 'success',
+    data: messages,
+  });
+};
+//! ------
 
 // create a new message
 export const createMessage = async (req, res) => {

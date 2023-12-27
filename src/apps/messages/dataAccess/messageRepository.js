@@ -9,6 +9,14 @@ export const getMessageByIdFromDb = async (id) => {
   return await MessageModel.findById(id);
 };
 
+export const getMessageByCategoryFromDb = async (categoryId) => {
+  let query = {};
+  if (categoryId !== 'all') {
+    query = { categoryId };
+  }
+  return await MessageModel.find(query).sort({ createdAt: -1 });
+};
+
 export const addMessageToDb = async (message) => {
   return await MessageModel.create(message);
 };
