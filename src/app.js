@@ -25,10 +25,6 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/messages', messagesRoutes);
 app.use('/api/categories', categoriesRoutes);
-// deployment test
-app.get('/api/aws-test', (req, res) => {
-  res.status(200).json({ msg: 'Hello World!' });
-});
 
 // aws healtcheck
 app.use('/api/healthcheck', (req, res) => {
