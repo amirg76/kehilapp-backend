@@ -10,7 +10,6 @@ export const getCategoryByIdValidation = celebrate({
 export const createCategoryValidation = celebrate({
   body: Joi.object().keys({
     title: Joi.string().required(),
-    managedBy: Joi.string().required(),
     categoryColor: Joi.string().required(),
   }),
 });
