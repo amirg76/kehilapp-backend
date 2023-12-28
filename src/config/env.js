@@ -1,6 +1,5 @@
 const getEnvVariable = (varName) => {
   const value = process.env[varName];
-  console.log(process.env.MONGO_URI);
   if (!value) {
     throw new Error(`${varName} is not defined in .env file`);
   }

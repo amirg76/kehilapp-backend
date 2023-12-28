@@ -1,6 +1,8 @@
 // DB Services
 import {
   getMessagesFromDb,
+  getMessageByCategoryFromDb,
+  getLatestMessagesFromDb,
   getMessageByIdFromDb,
   addMessageToDb,
   updateMessageInDb,
@@ -23,6 +25,42 @@ export const getMessages = async (req, res, next) => {
     );
   }
 
+  res.status(200).json({
+    status: 'success',
+    data: messages,
+  });
+};
+
+// get latest messages from all categories, this is to handle the Messages home page.
+export const getLatestMessages = async (req, res, next) => {
+  const messages = await getLatestMessagesFromDb();
+  if (!messages) {
+    return next(
+      new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+      ),
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: messages,
+  });
+};
+
+// get all messages of a specific category
+export const getMessageByCategory = async (req, res, next) => {
+  const { id } = req.params;
+  const messages = await getMessageByCategoryFromDb(id);
+  if (!messages) {
+    return next(
+      new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+      ),
+    );
+  }
   res.status(200).json({
     status: 'success',
     data: messages,
