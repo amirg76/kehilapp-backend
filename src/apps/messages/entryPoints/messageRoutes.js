@@ -4,6 +4,7 @@ import express from 'express';
 // validation
 import {
   getMessageByIdValidation,
+  getMessagesByCategoriesValidation,
   createMessageValidation,
   updateMessageValidation,
   deleteMessageValidation,
@@ -36,7 +37,7 @@ router.get(
 );
 
 //get messages by category
-router.get('/category/:id', getMessageByCategory);
+router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
 
 //create new message
 router.post(

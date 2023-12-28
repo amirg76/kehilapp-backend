@@ -7,6 +7,12 @@ export const getMessageByIdValidation = celebrate({
   }),
 });
 
+export const getMessagesByCategoriesValidation = celebrate({
+  params: Joi.object().keys({
+    id: Joi.string().required(),
+  }),
+});
+
 export const createMessageValidation = celebrate({
   body: Joi.object().keys({
     categoryId: Joi.string().required(),
