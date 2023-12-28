@@ -6,6 +6,7 @@ import {
   updateMessageInDb,
   deleteMessageInDb,
   getMessageByCategoryFromDb,
+  getGeneralMessagesFromDb,
 } from '../../messages/dataAccess/messageRepository.js';
 // error handlers
 import AppError from '../../../errors/AppError.js';
@@ -53,8 +54,12 @@ export const getMessageById = async (req, res, next) => {
 
 export const getMessageByCategory = async (req, res, next) => {
   const { id } = req.params;
-
-  const messages = await getMessageByCategoryFromDb(id);
+  let messages;
+  if (id === 'all') {
+    messages = await getGeneralMessagesFromDb(id);
+  } else {
+    messages = await getMessageByCategoryFromDb(id);
+  }
   if (!messages) {
     return next(
       new AppError(
@@ -68,7 +73,6 @@ export const getMessageByCategory = async (req, res, next) => {
     data: messages,
   });
 };
-//! ------
 
 // create a new message
 export const createMessage = async (req, res) => {
