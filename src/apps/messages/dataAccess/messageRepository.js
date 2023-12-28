@@ -10,12 +10,12 @@ export const getMessageByIdFromDb = async (id) => {
 };
 
 export const getMessageByCategoryFromDb = async (categoryId) => {
-  return await MessageModel.find(categoryId).sort({ createdAt: -1 });
+  return await MessageModel.find({ categoryId }).sort({ createdAt: -1 });
 };
 
 //TODO: change logic to fit the "ראשי" category, currently return the 5 newest messages
 export const getGeneralMessagesFromDb = async () => {
-  return await MessageModel.find().sort({ createdAt: -1 }).limit(5);
+  return await MessageModel.find({}).sort({ createdAt: -1 }).limit(5);
 };
 
 export const addMessageToDb = async (message) => {
