@@ -14,6 +14,7 @@ import {
   getMessages,
   getMessageById,
   getMessageByCategory,
+  getLatestMessages,
   createMessage,
   updateMessage,
   deleteMessage,
@@ -28,6 +29,12 @@ router.get(
   getMessages,
 );
 
+// get newest messages - 
+router.get('/latest', getLatestMessages);
+
+//get messages by category
+router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
+
 //get message by id
 router.get(
   '/:id',
@@ -35,9 +42,6 @@ router.get(
   // auth,
   getMessageById,
 );
-
-//get messages by category
-router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
 
 //create new message
 router.post(
