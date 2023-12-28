@@ -4,6 +4,7 @@ import express from 'express';
 // validation
 import {
   getMessageByIdValidation,
+  getMessagesByCategoriesValidation,
   createMessageValidation,
   updateMessageValidation,
   deleteMessageValidation,
@@ -12,6 +13,8 @@ import {
 import {
   getMessages,
   getMessageById,
+  getMessageByCategory,
+  getLatestMessages,
   createMessage,
   updateMessage,
   deleteMessage,
@@ -25,6 +28,12 @@ router.get(
   // auth,
   getMessages,
 );
+
+// get newest messages - 
+router.get('/latest', getLatestMessages);
+
+//get messages by category
+router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
 
 //get message by id
 router.get(

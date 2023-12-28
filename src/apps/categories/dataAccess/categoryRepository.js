@@ -1,7 +1,7 @@
 import CategoryModel from './categoryModel.js';
 
 export const getCategoriesFromDb = async (filterBy) => {
-  return await CategoryModel.find({}).sort({ createdAt: -1 }); //sorted as created last shown first
+  return await CategoryModel.find({}).sort({ createdAt: 1 }); //sorted as created first shown first
 };
 
 export const getCategoryByIdFromDb = async (id) => {
