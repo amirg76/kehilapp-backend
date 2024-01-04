@@ -1,3 +1,9 @@
 import UserModel from './userModel.js';
 
-export const getUserById = async (id) => UserModel.findById(id);
+export const getUsersFromDb = async () => {
+    return UserModel.find();
+}
+
+export const getUserFromDb = async (id) => {
+    return UserModel.findById(id);
+} 
