@@ -4,6 +4,7 @@ import {
   getMessageByCategoryFromDb,
   getLatestMessagesFromDb,
   getMessageByIdFromDb,
+  gettMessagesByQueryFromDb,
   addMessageToDb,
   updateMessageInDb,
   deleteMessageInDb,
@@ -32,6 +33,29 @@ export const getMessages = async (req, res, next) => {
 };
 
 // get latest messages from all categories, this is to handle the Messages home page.
+export const gettMessagesByQuery = async (req, res, next) => {
+  const searchString = req.query.searchTerm;
+
+  const stringRegex = new RegExp(searchString, 'i');
+
+  const messages = await gettMessagesByQueryFromDb(stringRegex);
+  console.log(messages);
+  if (!messages) {
+    return next(
+      new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+      ),
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: messages,
+  });
+};
+
+// get messages from all messages by user query search in message title and text.
 export const getLatestMessages = async (req, res, next) => {
   const messages = await getLatestMessagesFromDb();
   if (!messages) {

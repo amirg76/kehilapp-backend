@@ -14,6 +14,13 @@ export const getLatestMessagesFromDb = async () => {
   return await MessageModel.find({}).sort({ createdAt: -1 }).limit(5);
 };
 
+export const gettMessagesByQueryFromDb = async (stringRegex) => {
+  const query = {
+    $or: [{ title: { $regex: stringRegex } }, { text: { $regex: stringRegex } }],
+  };
+  return await MessageModel.find(query).sort({ createdAt: -1 }).limit(5);
+};
+
 export const getMessageByIdFromDb = async (id) => {
   return await MessageModel.findById(id);
 };

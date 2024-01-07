@@ -15,6 +15,7 @@ import {
   getMessageById,
   getMessageByCategory,
   getLatestMessages,
+  gettMessagesByQuery,
   createMessage,
   updateMessage,
   deleteMessage,
@@ -29,8 +30,11 @@ router.get(
   getMessages,
 );
 
-// get newest messages - 
+// get newest messages -
 router.get('/latest', getLatestMessages);
+
+// get messages by query -
+router.get('/search', gettMessagesByQuery);
 
 //get messages by category
 router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
