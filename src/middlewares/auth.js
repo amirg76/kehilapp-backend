@@ -1,5 +1,5 @@
 import pkg from 'jsonwebtoken';
-import errorManagement from '../errors/utils/errorMangement.js';
+import errorManagement from '../errors/utils/errorManagement.js';
 import AppError from '../errors/AppError.js';
 import User from '../apps/users/dataAccess/userModel.js';
 import { getJwtSecret } from '../config/env.js';

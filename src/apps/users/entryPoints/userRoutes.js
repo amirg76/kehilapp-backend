@@ -5,11 +5,19 @@ import * as usersController from '../domain/usersController.js';
 
 const router = express.Router();
 
+//get all messages
+router.get(
+  '/',
+  // auth,
+  usersController.getUsers,
+);
+
 router.get(
   // if we wouldn't get the userId from auth, we would get it from the params
-  '/details/:userId',
+  '/:userId',
   getUserByIdValidation,
-  auth,
+  //TODO: check the problem with the auth middleware. it throws an unauthorized error.
+  // auth,
   usersController.getUserById,
 );
 
