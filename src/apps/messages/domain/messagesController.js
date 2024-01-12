@@ -55,7 +55,7 @@ export const getMessagesByQuery = async (req, res, next) => {
   });
 };
 
-// get messages from all messages by user query search in message title and text.
+// get latest messages from all categories
 export const getLatestMessages = async (req, res, next) => {
   const messages = await getLatestMessagesFromDb();
   if (!messages) {
