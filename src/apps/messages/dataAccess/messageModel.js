@@ -7,8 +7,9 @@ const messageSchema = new Schema(
     senderId: { type: String, required: true },
     title: { type: String, required: true },
     text: { type: String, required: true },
-    attachmentPath: { type: String },
     attachmentName: { type: String },
+    attachmentKey: { type: String },
+    attachmentType: { type: String },
   },
   { timestamps: true },
 );
