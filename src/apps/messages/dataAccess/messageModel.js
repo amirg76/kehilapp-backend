@@ -4,7 +4,7 @@ import mongoose, { Schema } from 'mongoose';
 const messageSchema = new Schema(
   {
     categoryId: { type: String, required: true },
-    senderId: { type: String, required: true },
+    senderId: { type: String }, //* required: true - temporary remove requirment, to be replaced with auth
     title: { type: String, required: true },
     text: { type: String, required: true },
     attachmentName: { type: String },
