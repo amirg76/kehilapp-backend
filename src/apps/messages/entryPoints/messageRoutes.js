@@ -41,10 +41,10 @@ router.get('/category/:id', getMessageByCategory);
 router.get('/:id', getMessageById);
 
 //create new message
-router.post('/', createMessage);
+router.post('/', upload.single('file'), createMessage);
 
 //update a message
-router.patch('/:id', updateMessage);
+router.patch('/:id', upload.single('file'), updateMessage);
 
 //delete a message
 router.delete('/:id', deleteMessage);
