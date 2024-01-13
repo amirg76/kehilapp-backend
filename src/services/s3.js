@@ -11,23 +11,27 @@ const s3 = new S3Client({
   region: getBucketRegion(),
 });
 
-// upload a file to aws S3 bucket
+// upload a file to aws S3 bucket, if file is passed a unique key will be returned
 export const uploadFileToBucket = async (file) => {
-  const command = new PutObjectCommand({
-    Bucket: getBucketName(),
-    Key: uuidv4(),
-    Body: file.buffer,
-    ContentType: file.mimetype,
-  });
-  return await s3.send(command);
+  if (file) {
+    const fileKey = uuidv4();
+    const command = new PutObjectCommand({
+      Bucket: getBucketName(),
+      Key: fileKey,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    });
+    await s3.send(command);
+    return fileKey;
+  }
 };
 
 // upload a file with the same key to replace the existing file
 export const updateFileInBucket = async (file, existingKey) => {
   const command = new PutObjectCommand({
     Bucket: getBucketName(),
-    Key: uuidv4(),
-    Body: existingKey,
+    Key: existingKey,
+    Body: file.buffer,
     ContentType: file.mimetype,
   });
   return await s3.send(command);
