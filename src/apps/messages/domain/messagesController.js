@@ -34,12 +34,11 @@ export const getMessages = async (req, res, next) => {
 
 // get latest messages from all categories, this is to handle the Messages home page.
 export const getMessagesByQuery = async (req, res, next) => {
-  const searchString = req.query.searchTerm;
+  const { searchString } = req.query;
 
   const stringRegex = new RegExp(searchString, 'i');
-
   const messages = await getMessagesByQueryFromDb(stringRegex);
-  console.log(messages);
+
   if (!messages) {
     return next(
       new AppError(
