@@ -2,13 +2,15 @@ import express from 'express';
 // authentication
 // import auth from '../../../middlewares/auth.js';
 // validation
-import {
-  getMessageByIdValidation,
-  getMessagesByCategoriesValidation,
-  createMessageValidation,
-  updateMessageValidation,
-  deleteMessageValidation,
-} from './messagesValidation.js';
+// import {
+//   getMessageByIdValidation,
+//   getMessagesByCategoriesValidation,
+//   createMessageValidation,
+//   updateMessageValidation,
+//   deleteMessageValidation,
+// } from './messagesValidation.js';
+//upload middleware
+import upload from '../../../middlewares/multer.js';
 // controllers
 import {
   getMessages,
@@ -24,11 +26,7 @@ import {
 const router = express.Router();
 
 //get all messages
-router.get(
-  '/',
-  // auth,
-  getMessages,
-);
+router.get('/', getMessages);
 
 // get newest messages -
 router.get('/latest', getLatestMessages);
@@ -37,38 +35,18 @@ router.get('/latest', getLatestMessages);
 router.get('/search', getMessagesByQuery);
 
 //get messages by category
-router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
+router.get('/category/:id', getMessageByCategory);
 
 //get message by id
-router.get(
-  '/:id',
-  getMessageByIdValidation,
-  // auth,
-  getMessageById,
-);
+router.get('/:id', getMessageById);
 
 //create new message
-router.post(
-  '/',
-  createMessageValidation,
-  // auth,
-  createMessage,
-);
+router.post('/', createMessage);
 
 //update a message
-router.patch(
-  '/:id',
-  updateMessageValidation,
-  // auth,
-  updateMessage,
-);
+router.patch('/:id', updateMessage);
 
 //delete a message
-router.delete(
-  '/:id',
-  deleteMessageValidation,
-  // auth,
-  deleteMessage,
-);
+router.delete('/:id', deleteMessage);
 
 export default router;
