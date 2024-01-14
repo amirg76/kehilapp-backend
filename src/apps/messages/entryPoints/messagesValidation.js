@@ -1,19 +1,13 @@
 import { celebrate, Joi } from 'celebrate';
 import { messageConstants } from '../../../config/validationConstants.js';
 
-export const getMessagesByCategoriesValidation = celebrate({
+export const getMessageByIdValidation = celebrate({
   params: Joi.object().keys({
     id: Joi.string().required(),
   }),
 });
 
-export const searchMessagesValidation = celebrate({
-  query: Joi.object().keys({
-    searchString: Joi.string().required(),
-  }),
-});
-
-export const getMessageByIdValidation = celebrate({
+export const getMessagesByCategoriesValidation = celebrate({
   params: Joi.object().keys({
     id: Joi.string().required(),
   }),
@@ -22,8 +16,9 @@ export const getMessageByIdValidation = celebrate({
 export const createMessageValidation = celebrate({
   body: Joi.object().keys({
     categoryId: Joi.string().required(),
+    senderId: Joi.string().required(),
     title: Joi.string().min(messageConstants.titleMinLength).max(messageConstants.titleMaxLength).required(),
-    text: Joi.string().max(messageConstants.textMaxLength),
+    text: Joi.string().min(messageConstants.textMinLength).required(),
   }),
 });
 
@@ -33,8 +28,9 @@ export const updateMessageValidation = celebrate({
   }),
   body: Joi.object().keys({
     categoryId: Joi.string().required(),
+    senderId: Joi.string().required(),
     title: Joi.string().min(messageConstants.titleMinLength).max(messageConstants.titleMaxLength).required(),
-    text: Joi.string().min(messageConstants.textMaxLength),
+    text: Joi.string().min(messageConstants.textMinLength).required(),
   }),
 });
 

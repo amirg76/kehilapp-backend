@@ -2,14 +2,13 @@ import express from 'express';
 // authentication
 // import auth from '../../../middlewares/auth.js';
 // validation
-import {
-  searchMessagesValidation,
-  getMessagesByCategoriesValidation,
-  getMessageByIdValidation,
-  createMessageValidation,
-  updateMessageValidation,
-  deleteMessageValidation,
-} from './messagesValidation.js';
+// import {
+//   getMessageByIdValidation,
+//   getMessagesByCategoriesValidation,
+//   createMessageValidation,
+//   updateMessageValidation,
+//   deleteMessageValidation,
+// } from './messagesValidation.js';
 //upload middleware
 import upload from '../../../middlewares/multer.js';
 // controllers
@@ -33,21 +32,21 @@ router.get('/', getMessages);
 router.get('/latest', getLatestMessages);
 
 // get messages by query -
-router.get('/search', searchMessagesValidation, getMessagesByQuery);
+router.get('/search', getMessagesByQuery);
 
 //get messages by category
-router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
+router.get('/category/:id', getMessageByCategory);
 
 //get message by id
-router.get('/:id', getMessageByIdValidation, getMessageById);
+router.get('/:id', getMessageById);
 
 //create new message
-router.post('/', createMessageValidation, upload.single('file'), createMessage);
+router.post('/', upload.single('file'), createMessage);
 
 //update a message
-router.patch('/:id', updateMessageValidation, upload.single('file'), updateMessage);
+router.patch('/:id', upload.single('file'), updateMessage);
 
 //delete a message
-router.delete('/:id', deleteMessageValidation, deleteMessage);
+router.delete('/:id', deleteMessage);
 
 export default router;

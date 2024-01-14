@@ -4,7 +4,7 @@ export const categoryConstants = {
 };
 
 export const messageConstants = {
-  titleMinLength: 2,
-  titleMaxLength: 25,
-  textMaxLength: 250,
+  titleMinLength: 1,
+  titleMaxLength: 15,
+  textMinLength: 1,
 };
