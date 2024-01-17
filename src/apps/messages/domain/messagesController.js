@@ -26,10 +26,7 @@ export const getMessages = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
+  res.status(200).json(messages);
 };
 
 // get latest messages from all categories, this is to handle the Messages home page.
@@ -49,10 +46,7 @@ export const gettMessagesByQuery = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
+  res.status(200).json(messages);
 };
 
 // get messages from all messages by user query search in message title and text.
@@ -67,10 +61,7 @@ export const getLatestMessages = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
+  res.status(200).json(messages);
 };
 
 // get all messages of a specific category
@@ -85,10 +76,7 @@ export const getMessageByCategory = async (req, res, next) => {
       ),
     );
   }
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
+  res.status(200).json(messages);
 };
 
 // get message by id
@@ -106,37 +94,25 @@ export const getMessageById = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  res.status(200).json(message);
 };
 
 // create a new message
 export const createMessage = async (req, res) => {
   const message = await addMessageToDb(req.body);
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  res.status(200).json(message);
 };
 
 // update a message
 export const updateMessage = async (req, res) => {
   const { id } = req.params;
   const message = await updateMessageInDb(id, req.body);
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  res.status(200).json(message);
 };
 
 // delete a message
 export const deleteMessage = async (req, res) => {
   const { id } = req.params;
   const message = await deleteMessageInDb(id);
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  res.status(200).json(message);
 };
