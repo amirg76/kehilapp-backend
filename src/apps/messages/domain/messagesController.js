@@ -113,6 +113,10 @@ export const updateMessage = async (req, res) => {
 // delete a message
 export const deleteMessage = async (req, res) => {
   const { id } = req.params;
-  const message = await deleteMessageInDb(id);
-  res.status(200).json(message);
+  await deleteMessageInDb(id);
+  res.status(200).send('deleted successfully');
+  // res.status(200).json({
+  //   status: 'deleted successfully',
+  //   // data: message,
+  // });
 };

@@ -22,10 +22,7 @@ export const getCategories = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: categories,
-  });
+  res.status(200).json(categories);
 };
 
 // get category by id
@@ -43,37 +40,28 @@ export const getCategoryById = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: category,
-  });
+  res.status(200).json(category);
+
 };
 
 // create a new category
 export const createCategory = async (req, res) => {
   const category = await addCategoryToDb(req.body);
-  res.status(200).json({
-    status: 'success',
-    data: category,
-  });
+
+  res.status(200).json(category);
 };
 
 // update a category
 export const updateCategory = async (req, res) => {
   const { id } = req.params;
   const category = await updateCategoryInDb(id, req.body);
-  res.status(200).json({
-    status: 'success',
-    data: category,
-  });
+
+  res.status(200).json(category);
 };
 
 // delete a message
 export const deleteCategory = async (req, res) => {
   const { id } = req.params;
-  const category = await deleteCategoryInDb(id);
-  res.status(200).json({
-    status: 'success',
-    data: category,
-  });
+  await deleteCategoryInDb(id);
+  res.status(200).send('deleted successfully');
 };
