@@ -3,10 +3,10 @@ import MessageModel from './messageModel.js';
 // TODO: filtering dynamically by field - mongo aggregation framework
 export const getMessagesFromDb = async (filterBy) => {
   console.log('get from db', filterBy);
-  if (filterBy.latest === true) {
-    console.log('latest');
-    return await MessageModel.find({}).sort({ createdAt: -1 }).limit(5);
-  }
+  // if (filterBy.latest === true) {
+  //   console.log('latest');
+  //   return await MessageModel.find({}).sort({ createdAt: -1 }).limit(5);
+  // }
   const query = {}
   if (filterBy.categoryId && !filterBy.searchTerm) {
     console.log('category');
