@@ -4,7 +4,7 @@ import express from 'express';
 // validation
 import {
   getMessageByIdValidation,
-  getMessagesByCategoriesValidation,
+  // getMessagesByCategoriesValidation,
   createMessageValidation,
   updateMessageValidation,
   deleteMessageValidation,
@@ -13,9 +13,9 @@ import {
 import {
   getMessages,
   getMessageById,
-  getMessageByCategory,
-  getLatestMessages,
-  gettMessagesByQuery,
+  // getMessageByCategory,
+  // getLatestMessages,
+  // gettMessagesByQuery,
   createMessage,
   updateMessage,
   deleteMessage,
@@ -31,13 +31,13 @@ router.get(
 );
 
 // get newest messages -
-router.get('/latest', getLatestMessages);
+// router.get('/latest', getLatestMessages);
 
 // get messages by query -
-router.get('/search', gettMessagesByQuery);
+// router.get('/search', gettMessagesByQuery);
 
 //get messages by category
-router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
+// router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
 
 //get message by id
 router.get(

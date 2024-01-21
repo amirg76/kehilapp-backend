@@ -1,10 +1,10 @@
 // DB Services
 import {
   getMessagesFromDb,
-  getMessageByCategoryFromDb,
-  getLatestMessagesFromDb,
+  // getMessageByCategoryFromDb,
+  // getLatestMessagesFromDb,
   getMessageByIdFromDb,
-  gettMessagesByQueryFromDb,
+  // gettMessagesByQueryFromDb,
   addMessageToDb,
   updateMessageInDb,
   deleteMessageInDb,
@@ -31,54 +31,54 @@ export const getMessages = async (req, res, next) => {
 };
 
 // get latest messages from all categories, this is to handle the Messages home page.
-export const gettMessagesByQuery = async (req, res, next) => {
-  const searchString = req.query.searchTerm;
+// export const gettMessagesByQuery = async (req, res, next) => {
+//   const searchString = req.query.searchTerm;
 
-  const stringRegex = new RegExp(searchString, 'i');
+//   const stringRegex = new RegExp(searchString, 'i');
 
-  const messages = await gettMessagesByQueryFromDb(stringRegex);
-  console.log(messages);
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
-  }
+//   const messages = await gettMessagesByQueryFromDb(stringRegex);
+//   console.log(messages);
+//   if (!messages) {
+//     return next(
+//       new AppError(
+//         errorManagement.commonErrors.resourceNotFound.message,
+//         errorManagement.commonErrors.resourceNotFound.code,
+//       ),
+//     );
+//   }
 
-  res.status(200).json(messages);
-};
+//   res.status(200).json(messages);
+// };
 
-// get messages from all messages by user query search in message title and text.
-export const getLatestMessages = async (req, res, next) => {
-  const messages = await getLatestMessagesFromDb();
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
-  }
+// // get messages from all messages by user query search in message title and text.
+// export const getLatestMessages = async (req, res, next) => {
+//   const messages = await getLatestMessagesFromDb();
+//   if (!messages) {
+//     return next(
+//       new AppError(
+//         errorManagement.commonErrors.resourceNotFound.message,
+//         errorManagement.commonErrors.resourceNotFound.code,
+//       ),
+//     );
+//   }
 
-  res.status(200).json(messages);
-};
+//   res.status(200).json(messages);
+// };
 
-// get all messages of a specific category
-export const getMessageByCategory = async (req, res, next) => {
-  const { id } = req.params;
-  const messages = await getMessageByCategoryFromDb(id);
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
-  }
-  res.status(200).json(messages);
-};
+// // get all messages of a specific category
+// export const getMessageByCategory = async (req, res, next) => {
+//   const { id } = req.params;
+//   const messages = await getMessageByCategoryFromDb(id);
+//   if (!messages) {
+//     return next(
+//       new AppError(
+//         errorManagement.commonErrors.resourceNotFound.message,
+//         errorManagement.commonErrors.resourceNotFound.code,
+//       ),
+//     );
+//   }
+//   res.status(200).json(messages);
+// };
 
 // get message by id
 export const getMessageById = async (req, res, next) => {
