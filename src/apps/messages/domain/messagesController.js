@@ -15,8 +15,9 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 
 // get all messages
 export const getMessages = async (req, res, next) => {
-  const filterBy = req.query;
-  const messages = await getMessagesFromDb(filterBy);
+  const { filterBy } = req.query;
+  console.log('filterBy',filterBy);
+  const messages = await getMessagesFromDb(JSON.parse(filterBy));
   if (!messages) {
     return next(
       new AppError(

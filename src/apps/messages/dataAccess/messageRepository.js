@@ -2,7 +2,35 @@ import MessageModel from './messageModel.js';
 
 // TODO: filtering dynamically by field - mongo aggregation framework
 export const getMessagesFromDb = async (filterBy) => {
-  return await MessageModel.find(filterBy).sort({ createdAt: -1 }); //sorted as created last shown first
+  console.log('get from db', filterBy);
+  if (filterBy.latest === true) {
+    console.log('latest');
+    return await MessageModel.find({}).sort({ createdAt: -1 }).limit(5);
+  }
+  const query = {}
+  if (filterBy.categoryId && !filterBy.searchTerm) {
+    console.log('category');
+    query.categoryId = filterBy.categoryId
+  } else if (filterBy.searchTerm && !filterBy.categoryId) {
+    console.log('search');
+    const stringRegex = new RegExp(filterBy.searchTerm, 'i');
+    query.$or = [
+      { title: { $regex: stringRegex } },
+      { text: { $regex: stringRegex } },
+    ];
+  } else if (filterBy.categoryId && filterBy.searchTerm) {
+    console.log('search & category');
+    query.$and = [
+      { categoryId: query.categoryId },
+      {
+        $or: [
+          { title: { $regex: new RegExp(query.searchTerm, 'i') } },
+          { text: { $regex: new RegExp(query.searchTerm, 'i') } },
+        ],
+      },
+    ]
+  }
+  return await MessageModel.find(query).sort({ createdAt: -1 }); //sorted as created last shown first
 };
 
 export const getMessageByCategoryFromDb = async (categoryId) => {
