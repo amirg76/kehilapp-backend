@@ -21,11 +21,11 @@ export const getMessagesFromDb = async (filterBy) => {
   } else if (filterBy.categoryId && filterBy.searchTerm) {
     console.log('search & category');
     query.$and = [
-      { categoryId: query.categoryId },
+      { categoryId: filterBy.categoryId },
       {
         $or: [
-          { title: { $regex: new RegExp(query.searchTerm, 'i') } },
-          { text: { $regex: new RegExp(query.searchTerm, 'i') } },
+          { title: { $regex: new RegExp(filterBy.searchTerm, 'i') } },
+          { text: { $regex: new RegExp(filterBy.searchTerm, 'i') } },
         ],
       },
     ]
