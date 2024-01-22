@@ -9,7 +9,7 @@ export const getMessagesByCategoriesValidation = celebrate({
 
 export const searchMessagesValidation = celebrate({
   query: Joi.object().keys({
-    searchString: Joi.string().required(),
+    searchTerm: Joi.string().required(),
   }),
 });
 
