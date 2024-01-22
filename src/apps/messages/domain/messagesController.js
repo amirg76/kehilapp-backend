@@ -18,6 +18,7 @@ import {
 // error handlers
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
+import { log } from 'console';
 
 // get all messages
 export const getMessages = async (req, res, next) => {
@@ -101,11 +102,10 @@ export const getLatestMessages = async (req, res, next) => {
 
 // get latest messages from all categories, this is to handle the Messages home page.
 export const getMessagesByQuery = async (req, res, next) => {
-  const { searchString } = req.query;
-
+  const searchString = req.query.searchTerm;
   const stringRegex = new RegExp(searchString, 'i');
-
   const messages = await getMessagesByQueryFromDb(stringRegex);
+
   if (!messages) {
     return next(
       new AppError(
