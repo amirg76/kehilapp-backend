@@ -25,6 +25,9 @@ export const commonErrors = {
   notImplemented: { message: 'Not Implemented', code: 501 },
   badGateway: { message: 'Bad Gateway', code: 502 },
   gatewayTimeout: { message: 'Gateway Timeout', code: 504 },
+  multerUnsupportedFile: { message: 'Uploaded File is Not Supported', code: 415 },
+  multerFileSizeLimit: { message: 'File size Exceeded the allowed limit', code: 413 },
+  multerFileCount: { message: 'File Upload is Limited to One File Only', code: 413 },
 };
 
 const errorManagement = {

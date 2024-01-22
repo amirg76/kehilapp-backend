@@ -9,3 +9,11 @@ const getEnvVariable = (varName) => {
 export const getJwtSecret = () => getEnvVariable('JWT_SECRET');
 
 export const getMongoUri = () => getEnvVariable('MONGO_URI');
+
+export const getBucketName = () => getEnvVariable('BUCKET_NAME');
+
+export const getBucketRegion = () => getEnvVariable('BUCKET_REGION');
+
+export const getBucketAccessKey = () => getEnvVariable('BUCKET_ACCESS_KEY');
+
+export const getBucketSecretAccessKey = () => getEnvVariable('BUCKET_SECRET_ACCESS_KEY');
