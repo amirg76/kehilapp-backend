@@ -9,6 +9,8 @@ import {
   updateMessageValidation,
   deleteMessageValidation,
 } from './messagesValidation.js';
+//upload middleware
+import upload from '../../../middlewares/multer.js';
 // controllers
 import {
   getMessages,
@@ -24,11 +26,7 @@ import {
 const router = express.Router();
 
 //get all messages
-router.get(
-  '/',
-  // auth,
-  getMessages,
-);
+router.get('/', getMessages);
 
 // get newest messages -
 // router.get('/latest', getLatestMessages);
@@ -40,35 +38,15 @@ router.get(
 // router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
 
 //get message by id
-router.get(
-  '/:id',
-  getMessageByIdValidation,
-  // auth,
-  getMessageById,
-);
+router.get('/:id', getMessageByIdValidation, getMessageById);
 
 //create new message
-router.post(
-  '/',
-  createMessageValidation,
-  // auth,
-  createMessage,
-);
+router.post('/', upload.single('file'), createMessageValidation, createMessage);
 
 //update a message
-router.patch(
-  '/:id',
-  updateMessageValidation,
-  // auth,
-  updateMessage,
-);
+router.patch('/:id', upload.single('file'), updateMessageValidation, updateMessage);
 
 //delete a message
-router.delete(
-  '/:id',
-  deleteMessageValidation,
-  // auth,
-  deleteMessage,
-);
+router.delete('/:id', deleteMessageValidation, deleteMessage);
 
 export default router;

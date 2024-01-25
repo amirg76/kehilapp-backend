@@ -49,16 +49,22 @@ export const getMessagesFromDb = async (filterBy) => {
 //   return await MessageModel.find(query).sort({ createdAt: -1 }).limit(5);
 // };
 
+
 export const getMessageByIdFromDb = async (id) => {
-  return await MessageModel.findById(id);
+  return await MessageModel.findById(id).lean();
 };
 
-export const addMessageToDb = async (message) => {
-  return await MessageModel.create(message);
+//TODO: get user id from auth token and add to db
+export const addMessageToDb = async (categoryId, title, text, attachmentName, attachmentKey, attachmentType) => {
+  return await MessageModel.create({ categoryId, title, text, attachmentName, attachmentKey, attachmentType });
 };
 
-export const updateMessageInDb = async (id, updatedMessage) => {
-  return await MessageModel.findByIdAndUpdate(id, updatedMessage, { new: true });
+export const updateMessageInDb = async (id, categoryId, title, text, attachmentName, attachmentKey, attachmentType) => {
+  return await MessageModel.findByIdAndUpdate(
+    id,
+    { categoryId, title, text, attachmentName, attachmentKey, attachmentType },
+    { new: true },
+  );
 };
 
 export const deleteMessageInDb = async (id) => {
