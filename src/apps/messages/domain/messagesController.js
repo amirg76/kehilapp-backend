@@ -1,10 +1,10 @@
 // DB Services
 import {
   getMessagesFromDb,
-  getMessageByCategoryFromDb,
-  getLatestMessagesFromDb,
+  // getMessageByCategoryFromDb,
+  // getLatestMessagesFromDb,
   getMessageByIdFromDb,
-  getMessagesByQueryFromDb,
+  // gettMessagesByQueryFromDb,
   addMessageToDb,
   updateMessageInDb,
   deleteMessageInDb,
@@ -22,8 +22,10 @@ import { log } from 'console';
 
 // get all messages
 export const getMessages = async (req, res, next) => {
-  const messages = await getMessagesFromDb();
-
+  const { filterBy } = req.query;
+  console.log('filterBy',filterBy);
+  const messages = await getMessagesFromDb(JSON.parse(filterBy));
+  //const messages = await getMessagesFromDb();
   if (!messages) {
     return next(
       new AppError(
@@ -32,7 +34,7 @@ export const getMessages = async (req, res, next) => {
       ),
     );
   }
-
+  
   // get file signed url for all uploaded attachments
   for (const message of messages) {
     if (message.attachmentKey) {
@@ -41,93 +43,90 @@ export const getMessages = async (req, res, next) => {
     }
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
+  res.status(200).json(messages);
 };
 
 // get all messages of a specific category
-export const getMessageByCategory = async (req, res, next) => {
-  const { id } = req.params;
-  const messages = await getMessageByCategoryFromDb(id);
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
-  }
+// export const getMessageByCategory = async (req, res, next) => {
+//   const { id } = req.params;
+//   const messages = await getMessageByCategoryFromDb(id);
+//   if (!messages) {
+//     return next(
+//       new AppError(
+//         errorManagement.commonErrors.resourceNotFound.message,
+//         errorManagement.commonErrors.resourceNotFound.code,
+//       ),
+//     );
+//   }
 
-  // get file signed url for all uploaded attachments
-  for (const message of messages) {
-    if (message.attachmentKey) {
-      const url = await getFileSignedURL(message.attachmentKey);
-      message.attachmentUrl = url;
-    }
-  }
+//   // get file signed url for all uploaded attachments
+//   for (const message of messages) {
+//     if (message.attachmentKey) {
+//       const url = await getFileSignedURL(message.attachmentKey);
+//       message.attachmentUrl = url;
+//     }
+//   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
-};
+//   res.status(200).json({
+//     status: 'success',
+//     data: messages,
+//   });
+// };
 
 // get latest messages from all categories
-export const getLatestMessages = async (req, res, next) => {
-  const messages = await getLatestMessagesFromDb();
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
-  }
+// export const getLatestMessages = async (req, res, next) => {
+//   const messages = await getLatestMessagesFromDb();
+//   if (!messages) {
+//     return next(
+//       new AppError(
+//         errorManagement.commonErrors.resourceNotFound.message,
+//         errorManagement.commonErrors.resourceNotFound.code,
+//       ),
+//     );
+//   }
 
-  // get file signed url for all uploaded attachments
-  for (const message of messages) {
-    if (message.attachmentKey) {
-      const url = await getFileSignedURL(message.attachmentKey);
-      message.attachmentUrl = url;
-    }
-  }
+//   // get file signed url for all uploaded attachments
+//   for (const message of messages) {
+//     if (message.attachmentKey) {
+//       const url = await getFileSignedURL(message.attachmentKey);
+//       message.attachmentUrl = url;
+//     }
+//   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
-};
+//   res.status(200).json({
+//     status: 'success',
+//     data: messages,
+//   });
+// };
 
-// get latest messages from all categories, this is to handle the Messages home page.
-export const getMessagesByQuery = async (req, res, next) => {
-  const searchString = req.query.searchTerm;
-  const stringRegex = new RegExp(searchString, 'i');
-  const messages = await getMessagesByQueryFromDb(stringRegex);
+// // get latest messages from all categories, this is to handle the Messages home page.
+// export const getMessagesByQuery = async (req, res, next) => {
+//   const searchString = req.query.searchTerm;
+//   const stringRegex = new RegExp(searchString, 'i');
+//   const messages = await getMessagesByQueryFromDb(stringRegex);
 
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
-  }
+//   if (!messages) {
+//     return next(
+//       new AppError(
+//         errorManagement.commonErrors.resourceNotFound.message,
+//         errorManagement.commonErrors.resourceNotFound.code,
+//       ),
+//     );
+//   }
 
-  // get file signed url for all uploaded attachments
-  for (const message of messages) {
-    if (message.attachmentKey) {
-      const url = await getFileSignedURL(message.attachmentKey);
-      message.attachmentUrl = url;
-    }
-  }
+//   // get file signed url for all uploaded attachments
+//   for (const message of messages) {
+//     if (message.attachmentKey) {
+//       const url = await getFileSignedURL(message.attachmentKey);
+//       message.attachmentUrl = url;
+//     }
+//   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
-};
+//   res.status(200).json({
+//     status: 'success',
+//     data: messages,
+//   });
+// };
 
 // get message by id
 export const getMessageById = async (req, res, next) => {
@@ -149,10 +148,7 @@ export const getMessageById = async (req, res, next) => {
     message.attachmentUrl = url;
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+res.status(200).json(message);
 };
 
 // create a new message
@@ -170,10 +166,7 @@ export const createMessage = async (req, res) => {
 
   const message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType);
 
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+res.status(200).json(message);
 };
 
 // update a message, and replace an existing file
@@ -196,10 +189,8 @@ export const updateMessage = async (req, res) => {
     await updateFileInBucket(file, message.attachmentKey);
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+res.status(200).json(message);
+
 };
 
 // delete a message
@@ -212,8 +203,6 @@ export const deleteMessage = async (req, res) => {
     await deleteFileFromBucket(message.attachmentKey);
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  res.status(200).send('deleted successfully');
+
 };
