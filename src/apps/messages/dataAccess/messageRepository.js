@@ -8,7 +8,7 @@ export const getMessagesFromDb = async (searchTerm, categoryId) => {
     ...(searchTerm && { $or: [{ title: { $regex: regexString } }, { text: { $regex: regexString } }] }),
   };
 
-  return await MessageModel.find(query).sort({ createdAt: -1 }); //sorted as created last shown first
+  return await MessageModel.find(query).sort({ createdAt: -1 }).lean(); //sorted as created last shown first
 };
 
 export const getMessageByIdFromDb = async (id) => {
