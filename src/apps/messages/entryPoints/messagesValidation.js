@@ -1,15 +1,10 @@
 import { celebrate, Joi } from 'celebrate';
 import { messageConstants } from '../../../config/validationConstants.js';
 
-export const getMessagesByCategoriesValidation = celebrate({
-  params: Joi.object().keys({
-    id: Joi.string().required(),
-  }),
-});
-
-export const searchMessagesValidation = celebrate({
+export const getMessagesValidation = celebrate({
   query: Joi.object().keys({
-    searchTerm: Joi.string().required(),
+    searchTerm: Joi.string().allow(''),
+    categoryId: Joi.string().allow(''),
   }),
 });
 

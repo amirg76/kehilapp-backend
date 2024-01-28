@@ -3,8 +3,8 @@ import express from 'express';
 // import auth from '../../../middlewares/auth.js';
 // validation
 import {
+  getMessagesValidation,
   getMessageByIdValidation,
-  // getMessagesByCategoriesValidation,
   createMessageValidation,
   updateMessageValidation,
   deleteMessageValidation,
@@ -15,9 +15,6 @@ import upload from '../../../middlewares/multer.js';
 import {
   getMessages,
   getMessageById,
-  // getMessageByCategory,
-  // getLatestMessages,
-  // gettMessagesByQuery,
   createMessage,
   updateMessage,
   deleteMessage,
@@ -25,17 +22,8 @@ import {
 
 const router = express.Router();
 
-//get all messages
-router.get('/', getMessages);
-
-// get newest messages -
-// router.get('/latest', getLatestMessages);
-
-// get messages by query -
-// router.get('/search', gettMessagesByQuery);
-
-//get messages by category
-// router.get('/category/:id', getMessagesByCategoriesValidation, getMessageByCategory);
+//get messages
+router.get('/', getMessagesValidation, getMessages);
 
 //get message by id
 router.get('/:id', getMessageByIdValidation, getMessageById);
