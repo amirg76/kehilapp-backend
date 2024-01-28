@@ -18,7 +18,8 @@ export const createMessageValidation = celebrate({
   body: Joi.object().keys({
     categoryId: Joi.string().required(),
     title: Joi.string().min(messageConstants.titleMinLength).max(messageConstants.titleMaxLength).required(),
-    text: Joi.string().max(messageConstants.textMaxLength),
+    text: Joi.string().max(messageConstants.textMaxLength).allow(''),
+    file: Joi.optional(),
   }),
 });
 
