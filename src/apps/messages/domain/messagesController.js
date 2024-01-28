@@ -32,7 +32,7 @@ export const getMessages = async (req, res, next) => {
   // get file signed url for all uploaded attachments
   for (const message of messages) {
     if (message.attachmentKey) {
-      const url = await getFileSignedURL(message.attachmentKey);
+      const url = await getFileSignedURL('messages', message.attachmentKey);
       message.attachmentUrl = url;
     }
   }
@@ -56,7 +56,7 @@ export const getMessageById = async (req, res, next) => {
   }
 
   if (message.attachmentKey) {
-    const url = await getFileSignedURL(message.attachmentKey);
+    const url = await getFileSignedURL('messages', message.attachmentKey);
     message.attachmentUrl = url;
   }
 
@@ -73,7 +73,7 @@ export const createMessage = async (req, res) => {
   if (file) {
     attachmentName = file.originalname;
     attachmentType = file.mimetype;
-    attachmentKey = await uploadFileToBucket(file);
+    attachmentKey = await uploadFileToBucket('messages', file);
   }
 
   const message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType);
@@ -98,7 +98,7 @@ export const updateMessage = async (req, res) => {
 
   // if there is a a file, replace it with the same name
   if (file && message.attachmentKey) {
-    await updateFileInBucket(file, message.attachmentKey);
+    await updateFileInBucket('messages', message.attachmentKey, file);
   }
 
   res.status(200).json(message);
@@ -111,7 +111,7 @@ export const deleteMessage = async (req, res) => {
 
   //if there is a file uploaded, delete it
   if (message.attachmentKey) {
-    await deleteFileFromBucket(message.attachmentKey);
+    await deleteFileFromBucket('messages', message.attachmentKey);
   }
 
   res.status(200).send('deleted successfully');
