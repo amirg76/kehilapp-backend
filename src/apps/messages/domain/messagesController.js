@@ -76,7 +76,13 @@ export const createMessage = async (req, res) => {
     attachmentKey = await uploadFileToBucket('messages', file);
   }
 
-  const message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType);
+  let message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType);
+
+  if (attachmentKey) {
+    message = message.toObject();
+    const url = await getFileSignedURL('messages', attachmentKey);
+    message.attachmentUrl = url;
+  }
 
   res.status(200).json(message);
 };
