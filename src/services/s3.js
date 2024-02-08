@@ -39,7 +39,6 @@ export const updateFileInBucket = async (directory, existingKey, file) => {
 
 // generate a link to file, valid for 60 minutes
 export const getFileSignedURL = async (directory, key) => {
-  console.log(directory);
   const command = new GetObjectCommand({
     Bucket: getBucketName(),
     Key: `${directory}/${key}`,
