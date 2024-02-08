@@ -32,6 +32,7 @@ export const getMessages = async (req, res, next) => {
   // get file signed url for all uploaded attachments
   for (const message of messages) {
     if (message.attachmentKey) {
+      console.log(message.attachmentKey);
       const url = await getFileSignedURL('messages', message.attachmentKey);
       message.attachmentUrl = url;
     }

@@ -19,3 +19,7 @@ export const updateCategoryInDb = async (id, updatedCategory) => {
 export const deleteCategoryInDb = async (id) => {
   return await CategoryModel.findByIdAndDelete(id);
 };
+
+export const addCategoryImgInDb = async (categoryId, attachmentKey) => {
+  return await CategoryModel.findByIdAndUpdate(categoryId, { attachmentKey }, { new: true });
+};
