@@ -1,21 +1,25 @@
 // DB Services
 import {
   getMessagesFromDb,
-  getMessageByCategoryFromDb,
-  getLatestMessagesFromDb,
   getMessageByIdFromDb,
   addMessageToDb,
   updateMessageInDb,
   deleteMessageInDb,
 } from '../../messages/dataAccess/messageRepository.js';
+import {
+  uploadFileToBucket,
+  getFileSignedURL,
+  updateFileInBucket,
+  deleteFileFromBucket,
+} from '../../../services/s3.js';
 // error handlers
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 
-// get all messages
+// get messages filtered by query and categories
 export const getMessages = async (req, res, next) => {
-  const filterBy = req.query;
-  const messages = await getMessagesFromDb(filterBy);
+  const { searchTerm, categoryId } = req.query;
+  const messages = await getMessagesFromDb(searchTerm, categoryId);
   if (!messages) {
     return next(
       new AppError(
@@ -25,46 +29,15 @@ export const getMessages = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
-};
-
-// get latest messages from all categories, this is to handle the Messages home page.
-export const getLatestMessages = async (req, res, next) => {
-  const messages = await getLatestMessagesFromDb();
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
+  // get file signed url for all uploaded attachments
+  for (const message of messages) {
+    if (message.attachmentKey) {
+      const url = await getFileSignedURL('messages', message.attachmentKey);
+      message.attachmentUrl = url;
+    }
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
-};
-
-// get all messages of a specific category
-export const getMessageByCategory = async (req, res, next) => {
-  const { id } = req.params;
-  const messages = await getMessageByCategoryFromDb(id);
-  if (!messages) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-      ),
-    );
-  }
-  res.status(200).json({
-    status: 'success',
-    data: messages,
-  });
+  res.status(200).json(messages);
 };
 
 // get message by id
@@ -82,37 +55,70 @@ export const getMessageById = async (req, res, next) => {
     );
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  if (message.attachmentKey) {
+    const url = await getFileSignedURL('messages', message.attachmentKey);
+    message.attachmentUrl = url;
+  }
+
+  res.status(200).json(message);
 };
 
 // create a new message
 export const createMessage = async (req, res) => {
-  const message = await addMessageToDb(req.body);
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  const { categoryId, title, text } = req.body;
+  const file = req.file;
+  //TODO: get user id from auth token
+
+  let attachmentName, attachmentType, attachmentKey; //attachment file properties
+  if (file) {
+    attachmentName = file.originalname;
+    attachmentType = file.mimetype;
+    attachmentKey = await uploadFileToBucket('messages', file);
+  }
+
+  let message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType);
+
+  if (attachmentKey) {
+    message = message.toObject();
+    const url = await getFileSignedURL('messages', attachmentKey);
+    message.attachmentUrl = url;
+  }
+
+  res.status(200).json(message);
 };
 
-// update a message
+// update a message, and replace an existing file
 export const updateMessage = async (req, res) => {
   const { id } = req.params;
-  const message = await updateMessageInDb(id, req.body);
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+  const { categoryId, title, text } = req.body;
+  const file = req.file;
+
+  let attachmentName, attachmentType, attachmentKey; //attachment file properties
+  if (file) {
+    attachmentName = file.originalname;
+    attachmentType = file.mimetype;
+  }
+
+  let message;
+  message = await updateMessageInDb(id, categoryId, title, text, attachmentName, attachmentType);
+
+  // if there is a a file, replace it with the same name
+  if (file && message.attachmentKey) {
+    await updateFileInBucket('messages', message.attachmentKey, file);
+  }
+
+  res.status(200).json(message);
 };
 
 // delete a message
 export const deleteMessage = async (req, res) => {
   const { id } = req.params;
   const message = await deleteMessageInDb(id);
-  res.status(200).json({
-    status: 'success',
-    data: message,
-  });
+
+  //if there is a file uploaded, delete it
+  if (message.attachmentKey) {
+    await deleteFileFromBucket('messages', message.attachmentKey);
+  }
+
+  res.status(200).send('deleted successfully');
 };

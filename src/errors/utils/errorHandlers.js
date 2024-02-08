@@ -9,6 +9,7 @@ const handleErrors = (error, next) => {
       new AppError(
         errorManagement.commonErrors.validationError.message,
         errorManagement.commonErrors.validationError.code,
+        true,
       ),
     );
   }

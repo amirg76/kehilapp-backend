@@ -8,6 +8,7 @@ const categorySchema = new Schema(
     managedBy: { type: String }, //required: true
     icon: { type: String, required: true },
     coverImgUrl: { type: String }, //required: true
+    attachmentKey: { type: String },
     categoryColor: { type: String, required: true },
   },
   { timestamps: true },
