@@ -5,7 +5,14 @@ import {
   addCategoryToDb,
   updateCategoryInDb,
   deleteCategoryInDb,
+  addCategoryImgInDb,
 } from '../../categories/dataAccess/categoryRepository.js';
+import {
+  uploadFileToBucket,
+  getFileSignedURL,
+  updateFileInBucket,
+  deleteFileFromBucket,
+} from '../../../services/s3.js';
 // error handlers
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
@@ -22,6 +29,13 @@ export const getCategories = async (req, res, next) => {
     );
   }
 
+  // get file signed url for all uploaded attachments
+  for (const category of categories) {
+    if (category.attachmentKey) {
+      const url = await getFileSignedURL('categories', category.attachmentKey);
+      category.coverImgUrl = url;
+    }
+  }
   res.status(200).json(categories);
 };
 
@@ -39,9 +53,11 @@ export const getCategoryById = async (req, res, next) => {
       ),
     );
   }
-
+  if (category.attachmentKey) {
+    const url = await getFileSignedURL('categories', category.attachmentKey);
+    category.coverImgUrl = url;
+  }
   res.status(200).json(category);
-
 };
 
 // create a new category
@@ -64,4 +80,18 @@ export const deleteCategory = async (req, res) => {
   const { id } = req.params;
   await deleteCategoryInDb(id);
   res.status(200).send('deleted successfully');
+};
+
+// create a new category img
+export const createCategoryImg = async (req, res) => {
+  const { categoryId } = req.params;
+  const file = req.file;
+
+  let attachmentKey; //attachment file properties
+  if (file) {
+    attachmentKey = await uploadFileToBucket('categories', file);
+  }
+  const category = await addCategoryImgInDb(categoryId, attachmentKey);
+
+  res.status(200).json(category);
 };

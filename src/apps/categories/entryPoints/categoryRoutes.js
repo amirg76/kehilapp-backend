@@ -15,8 +15,10 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  createCategoryImg,
 } from '../domain/categoriesController.js';
 
+import upload from '../../../middlewares/multer.js';
 const router = express.Router();
 
 //get all categories
@@ -42,6 +44,13 @@ router.post(
   createCategory,
 );
 
+//create new category img
+router.post(
+  '/createImg/:categoryId',
+  upload.single('file'),
+  // auth,
+  createCategoryImg,
+);
 //update a category
 router.patch(
   '/:id',
