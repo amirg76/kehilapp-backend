@@ -5,6 +5,7 @@ import {
   addMessageToDb,
   updateMessageInDb,
   deleteMessageInDb,
+  deleteAllMessagesInDb,
 } from '../../messages/dataAccess/messageRepository.js';
 import {
   uploadFileToBucket,
@@ -119,6 +120,18 @@ export const deleteMessage = async (req, res) => {
   if (message.attachmentKey) {
     await deleteFileFromBucket('messages', message.attachmentKey);
   }
+
+  res.status(200).send('deleted successfully');
+};
+
+// delete all messages
+export const deleteAllMessages = async (req, res) => {
+  await deleteAllMessagesInDb();
+
+  // //if there is a file uploaded, delete it
+  // if (message.attachmentKey) {
+  //   await deleteFileFromBucket('messages', message.attachmentKey);
+  // }
 
   res.status(200).send('deleted successfully');
 };
