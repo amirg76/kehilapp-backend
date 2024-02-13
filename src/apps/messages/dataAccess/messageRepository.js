@@ -31,3 +31,7 @@ export const updateMessageInDb = async (id, categoryId, title, text, attachmentN
 export const deleteMessageInDb = async (id) => {
   return await MessageModel.findByIdAndDelete(id);
 };
+
+export const deleteAllMessagesInDb = async (id) => {
+  return await MessageModel.deleteMany({});
+};

@@ -18,6 +18,7 @@ import {
   createMessage,
   updateMessage,
   deleteMessage,
+  deleteAllMessages,
 } from '../domain/messagesController.js';
 
 const router = express.Router();
@@ -36,5 +37,8 @@ router.patch('/:id', upload.single('file'), updateMessageValidation, updateMessa
 
 //delete a message
 router.delete('/:id', deleteMessageValidation, deleteMessage);
+
+//delete all messages
+router.delete('/', deleteAllMessages);
 
 export default router;
