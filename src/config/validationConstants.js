@@ -6,5 +6,5 @@ export const categoryConstants = {
 export const messageConstants = {
   titleMinLength: 2,
   titleMaxLength: 25,
-  textMaxLength: 350,
+  textMaxLength: 1500,
 };
