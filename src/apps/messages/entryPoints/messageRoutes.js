@@ -23,7 +23,7 @@ import {
 
 const router = express.Router();
 
-//get messages
+///get messages
 router.get('/', getMessagesValidation, getMessages);
 
 //get message by id
