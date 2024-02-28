@@ -18,7 +18,7 @@ export const createMessageValidation = celebrate({
   body: Joi.object().keys({
     categoryId: Joi.string().required(),
     title: Joi.string().min(messageConstants.titleMinLength).max(messageConstants.titleMaxLength).required(),
-    text: Joi.string().max(messageConstants.textMaxLength).allow(''),
+    // text: Joi.string().max(messageConstants.textMaxLength).allow(''),
     file: Joi.optional(),
   }),
 });
@@ -30,7 +30,7 @@ export const updateMessageValidation = celebrate({
   body: Joi.object().keys({
     categoryId: Joi.string().required(),
     title: Joi.string().min(messageConstants.titleMinLength).max(messageConstants.titleMaxLength).required(),
-    text: Joi.string().min(messageConstants.textMaxLength),
+    // text: Joi.string().min(messageConstants.textMaxLength),
   }),
 });
 
