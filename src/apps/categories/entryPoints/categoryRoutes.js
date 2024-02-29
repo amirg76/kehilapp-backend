@@ -21,44 +21,18 @@ import upload from '../../../middlewares/multer.js';
 const router = express.Router();
 
 //get all categories
-router.get(
-  '/',
-  // auth,
-  getCategories,
-);
+router.get('/', getCategories);
 
 //get category by id
-router.get(
-  '/:id',
-  // getCategoryByIdValidation,
-  // auth,
-  getCategoryById,
-);
+router.get('/:id', getCategoryByIdValidation, getCategoryById);
 
 //create new category
-router.post(
-  '/',
-  upload.single('file'),
-  // createCategoryValidation,
-  // auth,
-  createCategory,
-);
+router.post('/', upload.single('file'), createCategoryValidation, createCategory);
 
 //update a category
-router.patch(
-  '/:id',
-  upload.single('file'),
-  // updateCategoryValidation,
-  // auth,
-  updateCategory,
-);
+router.patch('/:id', upload.single('file'), updateCategoryValidation, updateCategory);
 
 //delete a category
-router.delete(
-  '/:id',
-  // deleteCategoryValidation,
-  // auth,
-  deleteCategory,
-);
+router.delete('/:id', deleteCategoryValidation, deleteCategory);
 
 export default router;
