@@ -5,7 +5,6 @@ import {
   addCategoryToDb,
   updateCategoryInDb,
   deleteCategoryInDb,
-  addCategoryImgInDb,
 } from '../../categories/dataAccess/categoryRepository.js';
 import {
   uploadFileToBucket,
@@ -31,10 +30,8 @@ export const getCategories = async (req, res, next) => {
 
   // get file signed url for all uploaded attachments
   for (const category of categories) {
-    if (category.attachmentKey) {
-      const url = await getFileSignedURL('categories', category.attachmentKey);
-      category.coverImgUrl = url;
-    }
+    const url = await getFileSignedURL('categories', category.attachmentKey);
+    category.coverImgUrl = url;
   }
   res.status(200).json(categories);
 };
@@ -53,16 +50,23 @@ export const getCategoryById = async (req, res, next) => {
       ),
     );
   }
-  if (category.attachmentKey) {
-    const url = await getFileSignedURL('categories', category.attachmentKey);
-    category.coverImgUrl = url;
-  }
+  const url = await getFileSignedURL('categories', category.attachmentKey);
+  category.coverImgUrl = url;
+
   res.status(200).json(category);
 };
 
 // create a new category
 export const createCategory = async (req, res) => {
-  const category = await addCategoryToDb(req.body);
+  const { title, managedBy, icon, categoryColor } = req.body;
+  const file = req.file;
+
+  const attachmentKey = await uploadFileToBucket('categories', file);
+  let category = await addCategoryToDb(title, managedBy, icon, categoryColor, attachmentKey);
+
+  category = category.toObject();
+  const url = await getFileSignedURL('categories', attachmentKey);
+  category.coverImgUrl = url;
 
   res.status(200).json(category);
 };
@@ -70,7 +74,18 @@ export const createCategory = async (req, res) => {
 // update a category
 export const updateCategory = async (req, res) => {
   const { id } = req.params;
-  const category = await updateCategoryInDb(id, req.body);
+  const { title, managedBy, icon, categoryColor } = req.body;
+  const file = req.file;
+
+  let category = await updateCategoryInDb(id, title, managedBy, icon, categoryColor);
+
+  if (file) {
+    await updateFileInBucket('categories', category.attachmentKey, file);
+  }
+
+  category = category.toObject();
+  const url = await getFileSignedURL('categories', category.attachmentKey);
+  category.coverImgUrl = url;
 
   res.status(200).json(category);
 };
@@ -78,20 +93,7 @@ export const updateCategory = async (req, res) => {
 // delete a message
 export const deleteCategory = async (req, res) => {
   const { id } = req.params;
-  await deleteCategoryInDb(id);
+  const category = await deleteCategoryInDb(id);
+  await deleteFileFromBucket('categories', category.attachmentKey);
   res.status(200).send('deleted successfully');
-};
-
-// create a new category img
-export const createCategoryImg = async (req, res) => {
-  const { categoryId } = req.params;
-  const file = req.file;
-
-  let attachmentKey; //attachment file properties
-  if (file) {
-    attachmentKey = await uploadFileToBucket('categories', file);
-  }
-  const category = await addCategoryImgInDb(categoryId, attachmentKey);
-
-  res.status(200).json(category);
 };
