@@ -15,7 +15,6 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  createCategoryImg,
 } from '../domain/categoriesController.js';
 
 import upload from '../../../middlewares/multer.js';
@@ -31,7 +30,7 @@ router.get(
 //get category by id
 router.get(
   '/:id',
-  getCategoryByIdValidation,
+  // getCategoryByIdValidation,
   // auth,
   getCategoryById,
 );
@@ -39,22 +38,17 @@ router.get(
 //create new category
 router.post(
   '/',
-  createCategoryValidation,
+  upload.single('file'),
+  // createCategoryValidation,
   // auth,
   createCategory,
 );
 
-//create new category img
-router.post(
-  '/createImg/:categoryId',
-  upload.single('file'),
-  // auth,
-  createCategoryImg,
-);
 //update a category
 router.patch(
   '/:id',
-  updateCategoryValidation,
+  upload.single('file'),
+  // updateCategoryValidation,
   // auth,
   updateCategory,
 );
@@ -62,7 +56,7 @@ router.patch(
 //delete a category
 router.delete(
   '/:id',
-  deleteCategoryValidation,
+  // deleteCategoryValidation,
   // auth,
   deleteCategory,
 );
