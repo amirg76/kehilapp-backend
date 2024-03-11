@@ -6,4 +6,4 @@ export const getUsersFromDb = async () => {
 
 export const getUserFromDb = async (id) => {
     return UserModel.findById(id);
-} 
+}
