@@ -4,9 +4,11 @@ import { getUserByEmail } from '../../users/domain/usersController.js';
 
 
 export const login = async (req, res, next) => {
-
   const user = await getUserByEmail(req);
-  if (!user) {
+  const { password } = req.body;
+  const match = password === user?.password
+
+  if (!user || !match) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,
