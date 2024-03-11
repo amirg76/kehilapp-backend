@@ -1,11 +1,12 @@
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
-import { getUsers } from '../../users/domain/usersController.js';
+import { getUserByEmail } from '../../users/domain/usersController.js';
 
 
 export const login = async (req, res, next) => {
-  const users = await getUsers();
-  if (!users) {
+
+  const user = await getUserByEmail(req);
+  if (!user) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,
@@ -14,6 +15,6 @@ export const login = async (req, res, next) => {
     );
   }
 
-  res.status(200).json(users);
+  res.status(200).json(user);
 };
 
