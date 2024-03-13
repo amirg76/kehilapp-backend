@@ -42,7 +42,7 @@ export const getCategoryById = async (req, res, next) => {
   const { id } = req.params;
   const category = await getCategoryByIdFromDb(id);
 
-  if (!category || !categories.length) {
+  if (!category || !category.length) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,

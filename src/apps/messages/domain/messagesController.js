@@ -47,7 +47,7 @@ export const getMessageById = async (req, res, next) => {
   const { id } = req.params;
   const message = await getMessageByIdFromDb(id);
 
-  if (!message || !messages.length) {
+  if (!message || !message.length) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,
