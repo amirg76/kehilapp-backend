@@ -6,6 +6,7 @@ import { getUserByEmail } from '../../users/domain/usersController.js';
 export const login = async (req, res, next) => {
   const { email, password } = req.body;
 
+  console.log(email, password);
   //TODO: replace with real auth using JWT
   // const user = await getUserByEmail(req);
   // const match = password === user?.password
@@ -13,12 +14,15 @@ export const login = async (req, res, next) => {
   if (email !== "user@example.com" || password !== "user@example.com") {
     return next(
       new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
+        errorManagement.commonErrors.authenticationError.message,
+        errorManagement.commonErrors.authenticationError.code,
+        true
       ),
     );
+  } else {
+    const user = { id: 1, name: "ישראל ישראלי" };
+    res.status(200).json(user);
   }
-  const user = { id: 1, name: "ישראל ישראלי" };
-  res.status(200).json(user);
+
 };
 
