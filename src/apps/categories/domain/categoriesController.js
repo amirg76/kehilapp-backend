@@ -19,11 +19,12 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 // get all categories
 export const getCategories = async (req, res, next) => {
   const categories = await getCategoriesFromDb();
-  if (!categories) {
+  if (!categories || !categories.length) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,
         errorManagement.commonErrors.resourceNotFound.code,
+        true,
       ),
     );
   }
@@ -41,7 +42,7 @@ export const getCategoryById = async (req, res, next) => {
   const { id } = req.params;
   const category = await getCategoryByIdFromDb(id);
 
-  if (!category) {
+  if (!category || !categories.length) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,
