@@ -21,7 +21,7 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 export const getMessages = async (req, res, next) => {
   const { searchTerm, categoryId } = req.query;
   const messages = await getMessagesFromDb(searchTerm, categoryId);
-  if (!messages || !messages.length) {
+  if (!messages) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,
