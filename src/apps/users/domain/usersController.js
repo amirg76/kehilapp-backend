@@ -21,7 +21,7 @@ export const getUserById = async (req, res, next) => {
   const { userId } = req.params;
   const user = await getUserFromDb(userId);
 
-  if (!user || !user.length) {
+  if (!user) {
     return next(
       new AppError(
         errorManagement.commonErrors.resourceNotFound.message,
