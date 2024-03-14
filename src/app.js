@@ -11,6 +11,7 @@ import corsMiddleware from './middlewares/cors.js';
 import messagesRoutes from './apps/messages/entryPoints/messageRoutes.js';
 import categoriesRoutes from './apps/categories/entryPoints/categoryRoutes.js';
 import usersRoutes from './apps/users/entryPoints/userRoutes.js';
+import authRoutes from './apps/auth/entryPoints/authRoutes.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use((req, res, next) => {
 app.use('/api/messages', messagesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/auth', authRoutes);
 
 app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404, true));
