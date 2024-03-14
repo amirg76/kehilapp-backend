@@ -1,11 +1,11 @@
 import MessageModel from './messageModel.js';
 
 export const getMessagesFromDb = async (searchTerm, categoryId) => {
-  // let regexString = new RegExp(searchTerm, 'i');
+  let regexString = new RegExp(searchTerm, 'i');
 
   let query = {
     ...(categoryId && { categoryId: categoryId }),
-    ...(searchTerm && { $or: [{ title: { $regex: new RegExp(searchTerm, 'i') } }, { text: { $regex:  new RegExp(searchTerm, 'i') } }] }),
+    ...(searchTerm && { $or: [{ title: { $regex: regexString } }, { text: { $regex: regexString } }] }),
   };
 
   return await MessageModel.find(query).sort({ createdAt: -1 }).lean(); //sorted as created last shown first
