@@ -122,7 +122,7 @@ export const deleteMessage = async (req, res) => {
     await deleteFileFromBucket('messages', message.attachmentKey);
   }
 
-  res.status(200).send('deleted successfully');
+  res.status(200).send(id);
 };
 
 // delete all messages
