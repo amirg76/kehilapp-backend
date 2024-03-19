@@ -18,6 +18,7 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 
 // get all categories
 export const getCategories = async (req, res, next) => {
+  console.log('ddd');
   const categories = await getCategoriesFromDb();
   if (!categories) {
     return next(
