@@ -1,11 +1,12 @@
 import mongoose from 'mongoose';
 import AppError from '../errors/AppError.js';
 import errorManagement from '../errors/utils/errorManagement.js';
-import { getMongoUri } from '../config/env.js';
+import { getMongoUri, getMongoUriDev } from '../config/env.js';
 
 export async function connectDB() {
   try {
-    await mongoose.connect(getMongoUri());
+    console.log(process.env.NODE_ENV);
+    await mongoose.connect(process.env.NODE_ENV === 'dev' ? getMongoUriDev() : getMongoUri());
 
     mongoose.connection.on('error', (err) => {
       throw new AppError(
