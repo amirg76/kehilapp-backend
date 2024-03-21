@@ -6,7 +6,8 @@ import { getMongoUri, getMongoUriDev } from '../config/env.js';
 export async function connectDB() {
   try {
     console.log(process.env.NODE_ENV);
-    await mongoose.connect(process.env.NODE_ENV === 'dev' ? getMongoUriDev() : getMongoUri());
+    // await mongoose.connect(process.env.NODE_ENV === 'dev' ? getMongoUriDev() : getMongoUri());
+    await mongoose.connect(getMongoUri());
 
     mongoose.connection.on('error', (err) => {
       throw new AppError(
