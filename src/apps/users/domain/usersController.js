@@ -1,7 +1,27 @@
-import { getUserByEmailFromDb, getUserFromDb , getUsersFromDb } from '../../../apps/users/dataAccess/userRepository.js';
+import {
+  getUserByEmailFromDb,
+  getUserFromDb,
+  getUsersFromDb,
+  createUser,
+} from '../../../apps/users/dataAccess/userRepository.js';
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 
+export const createNewUser = async ({ email, password }) => {
+  const user = await createUser({ email, password });
+
+  if (!user) {
+    return next(
+      new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+        true,
+      ),
+    );
+  }
+
+  return user;
+};
 export const getUsers = async (req, res, next) => {
   const users = await getUsersFromDb();
   if (!users || !users.length) {
@@ -34,19 +54,34 @@ export const getUserById = async (req, res, next) => {
   res.status(200).json(user);
 };
 
-export const getUserByEmail = async (req, res, next) => {
-  const { email, password } = req.body;
-  const user = await getUserByEmailFromDb(email);
-
-  if (!user) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-        true,
-      ),
-    );
+// A function to get a user by email from the database
+export const findUserByEmail = async (email) => {
+  try {
+    const user = await getUserByEmailFromDb(email);
+    return user;
+  } catch (error) {
+    throw new Error('Error fetching user from the database');
   }
+};
 
-  res.status(200).json(user);
+export const getUserByEmail = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await findUserByEmail(email);
+
+    if (!user) {
+      return next(
+        new AppError(
+          errorManagement.commonErrors.resourceNotFound.message,
+          errorManagement.commonErrors.resourceNotFound.code,
+          true,
+        ),
+      );
+    }
+
+    return res.status(200).json(user);
+  } catch (error) {
+    next(error);
+  }
 };
