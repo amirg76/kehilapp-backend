@@ -2,8 +2,8 @@ import { applyErrorHandlingMiddleware } from '../../../errors/utils/dbErrorHandl
 import mongoose, { Schema } from 'mongoose';
 
 const userSchema = new Schema({
-  exampleId: { required: true, type: String, default: 'exampleId' },
-  name: { required: true, type: String, default: 'Example name' },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
 });
 
 applyErrorHandlingMiddleware(userSchema);
