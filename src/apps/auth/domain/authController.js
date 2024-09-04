@@ -9,9 +9,10 @@ export const registerUser = async (req, res, next) => {
     const { email, password } = req.body;
 
     const existingUser = await findUserByEmail(email);
+    console.log(existingUser);
 
     if (existingUser) {
-      return next(new Error('User already exists'));
+      return res.status(201).json({ message: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -19,6 +20,8 @@ export const registerUser = async (req, res, next) => {
     const user = await createNewUser({ email, password: hashedPassword });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    console.log(token);
 
     res.status(201).json({ token });
   } catch (error) {
@@ -28,10 +31,12 @@ export const registerUser = async (req, res, next) => {
 export const login = async (req, res, next) => {
   const { email, password } = req.body;
 
-  console.log(email, password);
+  console.log('login:', email, password);
   //TODO: replace with real auth using JWT
   const user = await getUserByEmail(req);
   const isValidPassword = await bcrypt.compare(password, user.password);
+  console.log(isValidPassword);
+
   if (!isValidPassword) {
     return next(new Error('Invalid password'));
   }
