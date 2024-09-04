@@ -12,7 +12,6 @@ export const registerUser = async (req, res, next) => {
     console.log(existingUser);
 
     if (existingUser) {
-      // return next(new Error('User already exists'));
       return res.status(201).json({ message: 'User already exists' });
     }
 
@@ -32,10 +31,12 @@ export const registerUser = async (req, res, next) => {
 export const login = async (req, res, next) => {
   const { email, password } = req.body;
 
-  console.log(email, password);
+  console.log('login:', email, password);
   //TODO: replace with real auth using JWT
   const user = await getUserByEmail(req);
   const isValidPassword = await bcrypt.compare(password, user.password);
+  console.log(isValidPassword);
+
   if (!isValidPassword) {
     return next(new Error('Invalid password'));
   }
