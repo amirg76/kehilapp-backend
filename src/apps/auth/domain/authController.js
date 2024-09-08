@@ -3,7 +3,7 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 import { getUserByEmail, createNewUser, findUserByEmail } from '../../users/domain/usersController.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-
+import logger from '../../../services/logger.js';
 export const registerUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -29,35 +29,42 @@ export const registerUser = async (req, res, next) => {
   }
 };
 export const login = async (req, res, next) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  console.log('login:', email, password);
-  //TODO: replace with real auth using JWT
-  const user = await getUserByEmail(req);
-  const isValidPassword = await bcrypt.compare(password, user.password);
-  console.log(isValidPassword);
+    const user = await getUserByEmail(email, next);
+    if (!user) {
+      logger.info('Invalid user attempted login', { email });
 
-  if (!isValidPassword) {
-    return next(new Error('Invalid password'));
+      return res.status(200).json({
+        success: false,
+        error: {
+          status: 404,
+          message: 'Invalid User',
+        },
+      });
+    }
+    if (user) {
+      const isValidPassword = await bcrypt.compare(password, user.password);
+
+      if (!isValidPassword) {
+        logger.info('Invalid password attempt', { email });
+
+        return res.status(200).json({
+          success: false,
+          error: {
+            status: 401,
+            message: 'Invalid Password',
+          },
+        });
+      }
+      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      res.status(200).json({ token });
+    }
+  } catch (error) {
+    console.error(error);
+
+    next(error);
   }
-
-  const match = password === user?.password;
-  console.log('login back');
-  // if (email !== 'user@example.com' || password !== 'user@example.com') {
-  if (!match) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.authenticationError.message,
-        errorManagement.commonErrors.authenticationError.code,
-        true,
-      ),
-    );
-  }
-  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-  res.status(200).json({ token });
-  // else {
-  //   const user = { id: 1, name: 'ישראל ישראלי' };
-  //   res.status(200).json(user);
-  // }
 };

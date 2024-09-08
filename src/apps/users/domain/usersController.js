@@ -58,29 +58,18 @@ export const getUserById = async (req, res, next) => {
 export const findUserByEmail = async (email) => {
   try {
     const user = await getUserByEmailFromDb(email);
+
     return user;
   } catch (error) {
     throw new Error('Error fetching user from the database');
   }
 };
 
-export const getUserByEmail = async (req, res, next) => {
+export const getUserByEmail = async (email, next) => {
   try {
-    const { email } = req.body;
+    const user = await getUserByEmailFromDb(email);
 
-    const user = await findUserByEmail(email);
-
-    if (!user) {
-      return next(
-        new AppError(
-          errorManagement.commonErrors.resourceNotFound.message,
-          errorManagement.commonErrors.resourceNotFound.code,
-          true,
-        ),
-      );
-    }
-
-    return res.status(200).json(user);
+    return user;
   } catch (error) {
     next(error);
   }

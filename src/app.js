@@ -35,6 +35,23 @@ app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404, true));
 });
 
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (body) {
+    if (this.statusCode >= 400) {
+      // For error responses, we'll send a 200 OK with the error details in the body
+      return originalJson.call(this, {
+        success: false,
+        error: {
+          status: this.statusCode,
+          message: body.message || 'An error occurred',
+        },
+      });
+    }
+    return originalJson.call(this, { success: true, data: body });
+  };
+  next();
+});
 // Error handling
 app.use(errorDelegatorMiddleware);
 app.use(globalErrorHandler);
