@@ -7,6 +7,10 @@ import errorManagement from './utils/errorManagement.js';
 
 const errorDelegatorMiddleware = (error, req, res, next) => {
   if (error instanceof AppError) {
+    console.log('errorDelegatorMiddleware : ', error.message);
+    if (res.headersSent) {
+      return;
+    }
     next(error);
   } else if (error instanceof multer.MulterError) {
     applyMulterErrorHandler(error, next);
