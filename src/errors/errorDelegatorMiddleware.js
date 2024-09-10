@@ -7,6 +7,8 @@ import errorManagement from './utils/errorManagement.js';
 
 const errorDelegatorMiddleware = (error, req, res, next) => {
   if (error instanceof AppError) {
+    error.statusCode = error.statusCode || 500;
+    error.status = error.status || 'error';
     console.log('errorDelegatorMiddleware : ', error.message);
     if (res.headersSent) {
       return;

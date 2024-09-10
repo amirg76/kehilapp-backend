@@ -31,29 +31,39 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/auth', authRoutes);
 
-app.all('*', (req, res, next) => {
-  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404, true));
-});
-
-app.use((req, res, next) => {
-  const originalJson = res.json;
-  res.json = function (body) {
-    if (this.statusCode >= 400) {
-      // For error responses, we'll send a 200 OK with the error details in the body
-      return originalJson.call(this, {
-        success: false,
-        error: {
-          status: this.statusCode,
-          message: body.message || 'An error occurred',
-        },
-      });
-    }
-    return originalJson.call(this, { success: true, data: body });
-  };
-  next();
-});
 // Error handling
 app.use(errorDelegatorMiddleware);
 app.use(globalErrorHandler);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  err.statusCode = err.statusCode || 500;
+  err.message = err.message || 'Internal server error';
+
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Error 🔥', err);
+  }
+
+  res.status(err.statusCode).send({ message: err.message });
+});
+// Middleware to handle all responses
+app.use((req, res, next) => {
+  res.sendResponse = function (data, statusCode = 200) {
+    this.status(200).json({
+      success: statusCode < 400,
+      data: statusCode < 400 ? data : null,
+      error:
+        statusCode >= 400
+          ? {
+              status: statusCode,
+              message: data.message || 'An error occurred',
+            }
+          : null,
+    });
+  };
+  console.log(res.sendResponse);
+
+  next();
+});
 
 export default app;
