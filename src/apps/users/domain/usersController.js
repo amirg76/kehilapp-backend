@@ -3,10 +3,16 @@ import {
   getUserFromDb,
   getUsersFromDb,
   createUser,
+  manyUser,
 } from '../../../apps/users/dataAccess/userRepository.js';
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 
+export const createManyUsers = async (req, res, next) => {
+  const users = await manyUser();
+
+  res.status(200).json(users);
+};
 export const createNewUser = async ({ email, password }) => {
   const user = await createUser({ email, password });
 
