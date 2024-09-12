@@ -9,11 +9,8 @@ const userSchema = new mongoose.Schema({
   phone: { type: String },
   passport: { type: String },
 });
-// const userSchema = new Schema({
-//   email: { type: String, required: true, unique: true },
-//   password: { type: String, required: true },
-// });
 
+// Apply error handling middleware
 applyErrorHandlingMiddleware(userSchema);
 
 export default mongoose.model('User', userSchema);
