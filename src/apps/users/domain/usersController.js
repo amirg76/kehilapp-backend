@@ -7,11 +7,17 @@ import {
 } from '../../../apps/users/dataAccess/userRepository.js';
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
-
+import { createErrorResponse } from '../../../errors/utils/mongoDbErrorHandler/createErrorResponse.js';
 export const createManyUsers = async (req, res, next) => {
-  const users = await manyUser();
-
-  res.status(200).json(users);
+  try {
+    const users = await manyUser();
+    if (users) {
+      return res.status(200).json({ message: 'Users created successfully' });
+    }
+  } catch (error) {
+    next(createErrorResponse(error));
+  }
+  // res.status(200).json(users);
 };
 export const createNewUser = async ({ email, password }) => {
   const user = await createUser({ email, password });

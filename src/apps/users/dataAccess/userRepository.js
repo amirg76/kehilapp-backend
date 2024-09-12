@@ -20,7 +20,7 @@ const users = [
   // Add more users here...
 ];
 export const manyUser = async () => {
-  return await UserModel.insertMany(users);
+  return await UserModel.insertMany(users, { ordered: false });
 };
 export const createUser = async ({ email, password }) => {
   return await UserModel.create({ email, password });
