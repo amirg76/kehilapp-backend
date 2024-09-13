@@ -1,4 +1,4 @@
-import UserModel from './userModel.js';
+import UserModel from '../../users/dataAccess/userModel.js';
 
 const users = [
   {
@@ -19,19 +19,21 @@ const users = [
   },
   // Add more users here...
 ];
-
-export const createUser = async ({ email, password }) => {
+export const manyUsers = async () => {
+  return await UserModel.insertMany(users, { ordered: false });
+};
+export const createAdmin = async ({ email, password }) => {
   return await UserModel.create({ email, password });
 };
 
-export const getUsersFromDb = async () => {
+export const getAdminsFromDb = async () => {
   return UserModel.find();
 };
 
-export const getUserFromDb = async (id) => {
+export const getAdminFromDb = async (id) => {
   return UserModel.findById(id);
 };
 
-export const getUserByEmailFromDb = async (email) => {
+export const getAdminByEmailFromDb = async (email) => {
   return UserModel.findOne({ email });
 };

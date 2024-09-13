@@ -12,6 +12,7 @@ import messagesRoutes from './apps/messages/entryPoints/messageRoutes.js';
 import categoriesRoutes from './apps/categories/entryPoints/categoryRoutes.js';
 import usersRoutes from './apps/users/entryPoints/userRoutes.js';
 import authRoutes from './apps/auth/entryPoints/authRoutes.js';
+import adminRoutes from './apps/admins/entryPoints/adminRoutes.js';
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling
 app.use(errorDelegatorMiddleware);
