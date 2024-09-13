@@ -5,12 +5,6 @@ import * as usersController from '../domain/usersController.js';
 
 const router = express.Router();
 
-//create many users
-router.post(
-  '/createMany',
-  // auth,
-  usersController.createManyUsers,
-);
 //get all messages
 router.get(
   '/',
