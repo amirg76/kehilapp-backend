@@ -8,16 +8,14 @@ import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 import { createErrorResponse } from '../../../errors/utils/mongoDbErrorHandler/createErrorResponse.js';
 
-export const createNewUser = async ({ email, password }) => {
-  const user = await createUser({ email, password });
+export const createNewUser = async (newUser) => {
+  const user = await createUser(newUser);
 
   if (!user) {
-    return next(
-      new AppError(
-        errorManagement.commonErrors.resourceNotFound.message,
-        errorManagement.commonErrors.resourceNotFound.code,
-        true,
-      ),
+    throw new AppError(
+      errorManagement.commonErrors.resourceNotFound.message,
+      errorManagement.commonErrors.resourceNotFound.code,
+      true,
     );
   }
 

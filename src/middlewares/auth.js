@@ -22,6 +22,8 @@ const verifyToken = async (token, next) =>
       } else if (typeof decoded === 'object' && decoded !== null && 'id' in decoded && 'role' in decoded) {
         resolve(decoded);
       } else {
+        console.log('role' in decoded);
+
         resolve(undefined);
       }
     });
@@ -46,12 +48,15 @@ const auth = async (req, res, next) => {
       return next(throwUnauthorizedError());
     }
 
-    const { id: userId, role } = decoded;
-    const user = await User.findById(userId);
+    const { id, role } = decoded;
+
+    const user = await User.findById(id);
+
     if (!user) return next(throwUnauthorizedError());
 
-    req.userId = userId;
+    req.id = id;
     req.role = role;
+
     next();
   } catch (err) {
     if (err instanceof Error) {

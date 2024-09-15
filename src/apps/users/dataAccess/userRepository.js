@@ -20,8 +20,10 @@ const users = [
   // Add more users here...
 ];
 
-export const createUser = async ({ email, password }) => {
-  return await UserModel.create({ email, password });
+export const createUser = async (user) => {
+  const newUser = new UserModel(user);
+
+  return await newUser.save();
 };
 
 export const getUsersFromDb = async () => {
