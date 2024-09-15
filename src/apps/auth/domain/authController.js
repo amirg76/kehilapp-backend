@@ -4,9 +4,11 @@ import { getUserByEmail, createNewUser, findUserByEmail } from '../../users/doma
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import logger from '../../../services/logger.js';
+import { generateToken } from '../dataAccess/authRepository.js';
 export const registerUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
+    console.log(email, password, role);
 
     const existingUser = await findUserByEmail(email);
 
@@ -16,11 +18,12 @@ export const registerUser = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await createNewUser({ email, password: hashedPassword });
+    const user = await createNewUser({ email, password: hashedPassword, role });
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = await generateToken(user);
 
-    console.log(token);
+    console.log('token', token);
 
     res.status(201).json({
       success: true,
@@ -46,7 +49,8 @@ export const login = async (req, res, next) => {
       if (!isValidPassword) {
         return next(new AppError('Invalid Password', 401));
       }
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      // const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const token = await generateToken(user);
 
       res.status(201).json({
         success: true,

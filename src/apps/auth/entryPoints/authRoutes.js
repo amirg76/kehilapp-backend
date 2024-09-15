@@ -5,7 +5,6 @@ import { validateUser } from '../../users/entryPoints/usersValidation.js';
 
 const router = express.Router();
 
-//get all messages
 router.post('/register', validateUser, authController.registerUser);
 router.post('/login', validateUser, authController.login);
 
