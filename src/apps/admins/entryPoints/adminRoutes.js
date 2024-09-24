@@ -8,7 +8,7 @@ import { validateUser } from '../../users/entryPoints/usersValidation.js';
 const router = express.Router();
 
 // admin login
-router.post('/login', validateUser, auth, validateAdmin, authController.login);
+router.post('/login', validateUser, validateAdmin, authController.login);
 //create many users
 router.post(
   '/createMany',

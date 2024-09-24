@@ -39,19 +39,24 @@ app.use(globalErrorHandler);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  err.statusCode = err.statusCode || 500;
-  err.message = err.message || 'Internal server error';
+  console.error(err); // Log the error for debugging
 
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error 🔥', err);
-  }
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'An error occurred';
 
-  res.status(err.statusCode).send({ message: err.message });
+  res.status(statusCode).json({
+    success: false,
+    data: null,
+    error: {
+      status: statusCode,
+      message: message,
+    },
+  });
 });
 // Middleware to handle all responses
 app.use((req, res, next) => {
   res.sendResponse = function (data, statusCode = 200) {
-    this.status(200).json({
+    this.status(statusCode).json({
       success: statusCode < 400,
       data: statusCode < 400 ? data : null,
       error:
@@ -63,7 +68,6 @@ app.use((req, res, next) => {
           : null,
     });
   };
-  console.log(res.sendResponse);
 
   next();
 });
