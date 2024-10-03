@@ -3,6 +3,7 @@ import errorManagement from '../errors/utils/errorManagement.js';
 import AppError from '../errors/AppError.js';
 import User from '../apps/users/dataAccess/userModel.js';
 import { getJwtSecret } from '../config/env.js';
+import jwt from 'jsonwebtoken';
 
 const { verify } = pkg;
 
@@ -15,7 +16,7 @@ const throwUnauthorizedError = () =>
 
 const verifyToken = async (token, next) =>
   new Promise((resolve, reject) => {
-    verify(token, getJwtSecret(), (err, decoded) => {
+    jwt.verify(token, getJwtSecret(), (err, decoded) => {
       if (err) {
         next(throwUnauthorizedError());
         resolve(undefined);
@@ -37,10 +38,15 @@ const auth = async (req, res, next) => {
       return next(throwUnauthorizedError());
     }
 
-    const [prefix, token, ...rest] = authHeader.split(' ');
-    if (prefix !== 'Bearer' || !token || rest.length > 0) {
-      return next(throwUnauthorizedError());
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
     }
+    // const [prefix, token, ...rest] = authHeader.split(' ');
+    // if (prefix !== 'Bearer' || !token || rest.length > 0) {
+    //   return next(throwUnauthorizedError());
+    // }
+    // console.log('auth', token);
 
     const decoded = await verifyToken(token, next);
 
