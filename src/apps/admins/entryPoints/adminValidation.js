@@ -1,8 +1,8 @@
 import AppError from '../../../errors/AppError.js';
 import User from '../../users/dataAccess/userModel.js';
 
-export const validateAdmin = async (req, res, next) => {
-  // const user = await User.findOne({ email: req.body.email });
+export const validateAdminLogin = async (req, res, next) => {
+  const user = await User.findOne({ email: req.body.email });
 
   // if (user && user.role === 'admin') {
   //   next();
@@ -13,11 +13,14 @@ export const validateAdmin = async (req, res, next) => {
   //   // res.status(403).json({ message: 'Access denied. Admin rights required.' });
   // }
   try {
-    const user = await User.findOne({ email: req.body.email });
+    // console.log(req.id);
+
+    // const user = await User.findOne({ _id: req.id });
 
     if (!user || user.role !== 'admin') {
       throw new AppError('Access denied. Admin rights required.', 403);
     }
+
     // If the user is an admin, attach the user object to the request
     req.user = user;
     next();

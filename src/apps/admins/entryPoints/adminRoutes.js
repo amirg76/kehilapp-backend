@@ -1,22 +1,17 @@
 import express from 'express';
 import auth from '../../../middlewares/auth.js';
-import { validateAdmin } from './adminValidation.js';
+import { validateAdminLogin } from './adminValidation.js';
 import * as adminController from '../domain/adminController.js';
 import * as authController from '../../auth/domain/authController.js';
 import { validateUser } from '../../users/entryPoints/usersValidation.js';
-
+import protectAdminRoute from '../../../middlewares/protectAdminRoute.js';
+import multer from 'multer';
 const router = express.Router();
-
+const upload = multer({ dest: 'uploads/' });
 // admin login
-router.post('/login', validateUser, validateAdmin, authController.login);
+router.post('/login', validateUser, validateAdminLogin, authController.login);
 //create many users
-router.post(
-  '/createMany',
-  // auth,
-  validateUser,
-  validateAdmin,
-  adminController.createManyUsers,
-);
+router.post('/add-many-users', auth, protectAdminRoute, upload.single('file'), adminController.createManyUsers);
 // //get all messages
 // router.get(
 //   '/',
