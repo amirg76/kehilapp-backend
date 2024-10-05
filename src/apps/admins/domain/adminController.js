@@ -10,6 +10,7 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 import { createErrorResponse } from '../../../errors/utils/mongoDbErrorHandler/createErrorResponse.js';
 import { readExcelFile } from '../services/adminServices.js';
 import bcrypt from 'bcryptjs';
+
 export const createManyUsers = async (req, res, next) => {
   try {
     const file = req.file;
@@ -26,9 +27,11 @@ export const createManyUsers = async (req, res, next) => {
         return {
           firstName: row.firstName,
           lastName: row.lastName,
+          phone: row.phone,
           role: row.role,
           email: row.email,
           password: await bcrypt.hash(String(row.password).trim(), 10),
+
           // Add more fields as needed
         };
       }),
