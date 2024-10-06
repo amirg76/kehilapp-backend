@@ -26,13 +26,15 @@ export const createManyUsers = async (req, res, next) => {
     const processedData = await Promise.all(
       data.map(async (row) => {
         return {
+          id: row.id,
           firstName: row.firstName,
           lastName: row.lastName,
           phone: row.phone,
+          img: row.img,
           role: row.role,
           email: row.email,
           password: await bcrypt.hash(String(row.password).trim(), 10),
-
+          verified: row.verified,
           // Add more fields as needed
         };
       }),
