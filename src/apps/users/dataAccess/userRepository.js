@@ -26,8 +26,8 @@ export const createUser = async (user) => {
   return await newUser.save();
 };
 
-export const getUsersFromDb = async () => {
-  return UserModel.find();
+export const getUsersFromDb = async (filter) => {
+  return UserModel.find(filter);
 };
 
 export const getUserFromDb = async (id) => {
