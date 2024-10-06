@@ -4,17 +4,20 @@ import mongoose, { Schema } from 'mongoose';
 const userSchema = new mongoose.Schema(
   {
     // username: { type: String, required: true, unique: true },
+    id: { type: String, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     // Regular user fields
-    firstName: String,
-    lastName: String,
-    phone: String,
+    firstName: { type: String },
+    lastName: { type: String },
+    phone: { type: String },
+    img: { type: String, default: '' },
     // Admin-specific fields
     adminLevel: { type: Number, default: 0 },
     adminPermissions: [String],
     lastAdminAction: Date,
+    verified: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
