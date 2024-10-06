@@ -4,6 +4,7 @@ import {
   getAdminsFromDb,
   createAdmin,
   manyUsers,
+  deleteUsers,
 } from '../../../apps/admins/dataAccess/adminRepository.js';
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
@@ -41,6 +42,18 @@ export const createManyUsers = async (req, res, next) => {
 
     if (Users) {
       return res.status(200).json({ message: 'Users created successfully' });
+    }
+  } catch (error) {
+    next(createErrorResponse(error));
+  }
+};
+
+export const deleteManyUsers = async (req, res, next) => {
+  try {
+    const Users = await deleteUsers();
+
+    if (Users) {
+      return res.status(200).json({ message: 'Users deleted successfully' });
     }
   } catch (error) {
     next(createErrorResponse(error));

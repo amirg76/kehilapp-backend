@@ -19,8 +19,12 @@ import UserModel from '../../users/dataAccess/userModel.js';
 //   },
 //   // Add more users here...
 // ];
+
 export const manyUsers = async (users) => {
   return await UserModel.insertMany(users, { ordered: false });
+};
+export const deleteUsers = async () => {
+  return await UserModel.deleteMany({});
 };
 export const createAdmin = async ({ email, password }) => {
   return await UserModel.create({ email, password });
