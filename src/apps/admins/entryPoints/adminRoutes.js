@@ -12,6 +12,7 @@ const upload = multer({ dest: 'uploads/' });
 router.post('/login', validateUser, validateAdminLogin, authController.login);
 //create many users
 router.post('/add-many-users', auth, protectAdminRoute, upload.single('file'), adminController.createManyUsers);
+router.post('/delete-many-users', auth, protectAdminRoute, adminController.deleteManyUsers);
 // //get all messages
 // router.get(
 //   '/',
