@@ -13,6 +13,7 @@ router.post('/login', validateUser, validateAdminLogin, authController.login);
 //create many users
 router.post('/add-many-users', auth, protectAdminRoute, upload.single('file'), adminController.createManyUsers);
 router.post('/delete-many-users', auth, protectAdminRoute, adminController.deleteManyUsers);
+router.post('/add-user', auth, protectAdminRoute, adminController.createNewUser);
 // //get all messages
 // router.get(
 //   '/',

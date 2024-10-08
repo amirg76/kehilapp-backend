@@ -20,6 +20,10 @@ import UserModel from '../../users/dataAccess/userModel.js';
 //   // Add more users here...
 // ];
 
+export const createUser = async (newUser) => {
+  const newUserCreate = new UserModel(newUser);
+  return await newUserCreate.save();
+};
 export const manyUsers = async (users) => {
   return await UserModel.insertMany(users, { ordered: false });
 };
