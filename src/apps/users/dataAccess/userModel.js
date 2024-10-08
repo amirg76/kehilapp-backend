@@ -26,3 +26,13 @@ const userSchema = new mongoose.Schema(
 applyErrorHandlingMiddleware(userSchema);
 
 export default mongoose.model('User', userSchema);
+
+const counterSchema = new mongoose.Schema({
+  _id: { type: String, required: true },
+  seq: { type: Number, default: 0 },
+});
+
+// Apply error handling middleware
+applyErrorHandlingMiddleware(counterSchema);
+
+export const Counter = mongoose.model('Counter', counterSchema);
