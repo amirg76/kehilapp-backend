@@ -3,15 +3,54 @@ import {
   getAdminFromDb,
   getAdminsFromDb,
   createAdmin,
+  createUser,
   manyUsers,
   deleteUsers,
 } from '../../../apps/admins/dataAccess/adminRepository.js';
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 import { createErrorResponse } from '../../../errors/utils/mongoDbErrorHandler/createErrorResponse.js';
+import { findUserByEmail } from '../../users/domain/usersController.js';
 import { readExcelFile } from '../services/adminServices.js';
 import bcrypt from 'bcryptjs';
 
+export const createNewUser = async (req, res, next) => {
+  try {
+    const newUserObj = req.body;
+    // Check if user with this email already exists
+    const existingUser = await findUserByEmail(newUserObj.email);
+    if (existingUser) {
+      return next(new AppError('User already exists', 409));
+    }
+
+    const newUser = {
+      firstName: newUserObj.firstName || '',
+      lastName: newUserObj.lastName || '',
+      phone: newUserObj.phone || '',
+      email: newUserObj.email || '',
+      // Add a default password that should be changed on first login
+      password: await bcrypt.hash(String(12345678).trim(), 10),
+    };
+
+    const user = await createUser(newUser);
+    console.log('user', user);
+
+    if (!user) {
+      throw new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+        true,
+      );
+    }
+
+    // return user;
+    return res.status(200).json({ message: 'User created successfully' });
+  } catch (error) {
+    console.log('error', error);
+
+    next(createErrorResponse(error));
+  }
+};
 export const createManyUsers = async (req, res, next) => {
   try {
     const file = req.file;
