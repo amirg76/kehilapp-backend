@@ -23,6 +23,7 @@ export const createNewUser = async (newUser) => {
 };
 export const getUsers = async (req, res, next) => {
   const users = await getUsersFromDb({ role: req.query.role || 'user' });
+
   if (!users || !users.length) {
     return next(
       new AppError(
