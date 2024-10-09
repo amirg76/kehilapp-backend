@@ -11,12 +11,13 @@ import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 import { createErrorResponse } from '../../../errors/utils/mongoDbErrorHandler/createErrorResponse.js';
 import { findUserByEmail } from '../../users/domain/usersController.js';
-import { readExcelFile } from '../services/adminServices.js';
+import { restSequence, addSequenceId, readExcelFile } from '../services/adminServices.js';
 import bcrypt from 'bcryptjs';
 
 export const createNewUser = async (req, res, next) => {
   try {
     const newUserObj = req.body;
+
     // Check if user with this email already exists
     const existingUser = await findUserByEmail(newUserObj.email);
     if (existingUser) {
@@ -31,9 +32,8 @@ export const createNewUser = async (req, res, next) => {
       // Add a default password that should be changed on first login
       password: await bcrypt.hash(String(12345678).trim(), 10),
     };
-
-    const user = await createUser(newUser);
-    console.log('user', user);
+    const userWithSequenceId = await addSequenceId(newUser, 'user');
+    const user = await createUser(userWithSequenceId);
 
     if (!user) {
       throw new AppError(
@@ -65,7 +65,7 @@ export const createManyUsers = async (req, res, next) => {
     const processedData = await Promise.all(
       data.map(async (row) => {
         return {
-          id: row.id,
+          // id: row.id,
           firstName: row.firstName,
           lastName: row.lastName,
           phone: row.phone,
@@ -73,13 +73,13 @@ export const createManyUsers = async (req, res, next) => {
           role: row.role,
           email: row.email,
           password: await bcrypt.hash(String(row.password).trim(), 10),
-          verified: row.verified,
+          verified: row.verified || false,
           // Add more fields as needed
         };
       }),
     );
-
-    const Users = await manyUsers(processedData);
+    const usersWithSequenceId = await addSequenceId(processedData, 'users');
+    const Users = await manyUsers(usersWithSequenceId);
 
     if (Users) {
       return res.status(200).json({ message: 'Users created successfully' });
@@ -92,6 +92,7 @@ export const createManyUsers = async (req, res, next) => {
 export const deleteManyUsers = async (req, res, next) => {
   try {
     const Users = await deleteUsers();
+    await restSequence();
 
     if (Users) {
       return res.status(200).json({ message: 'Users deleted successfully' });

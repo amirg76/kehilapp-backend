@@ -3,9 +3,7 @@ import mongoose, { Schema } from 'mongoose';
 
 const userSchema = new mongoose.Schema(
   {
-    // username: { type: String, required: true, unique: true },
-    // id: { type: String, unique: true },
-    numericId: { type: Number, unique: true },
+    id: { type: Number, unique: true, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
@@ -27,13 +25,3 @@ const userSchema = new mongoose.Schema(
 applyErrorHandlingMiddleware(userSchema);
 
 export default mongoose.model('User', userSchema);
-
-const counterSchema = new mongoose.Schema({
-  _id: { type: String, required: true },
-  seq: { type: Number, default: 0 },
-});
-
-// Apply error handling middleware
-applyErrorHandlingMiddleware(counterSchema);
-
-export const Counter = mongoose.model('Counter', counterSchema);
