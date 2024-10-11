@@ -27,6 +27,11 @@ export const createUser = async (newUser) => {
 export const manyUsers = async (users) => {
   return await UserModel.insertMany(users, { ordered: false });
 };
+
+export const deleltedItemOnDb = async (id) => {
+  return await UserModel.deleteOne({ _id: id });
+};
+
 export const deleteUsers = async () => {
   return await UserModel.deleteMany({});
 };
