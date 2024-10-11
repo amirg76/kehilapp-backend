@@ -5,6 +5,7 @@ import {
   createAdmin,
   createUser,
   manyUsers,
+  deleltedItemOnDb,
   deleteUsers,
 } from '../../../apps/admins/dataAccess/adminRepository.js';
 import AppError from '../../../errors/AppError.js';
@@ -89,7 +90,24 @@ export const createManyUsers = async (req, res, next) => {
     next(createErrorResponse(error));
   }
 };
+export const deleteItemFromTable = async (req, res, next) => {
+  try {
+    const deleteId = req.body.id;
 
+    const deleltedItem = await deleltedItemOnDb(deleteId);
+
+    if (!deleltedItem) {
+      throw new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+        true,
+      );
+    }
+    return res.status(200).json({ message: 'Item deleted successfully' });
+  } catch (error) {
+    next(createErrorResponse(error));
+  }
+};
 export const deleteManyUsers = async (req, res, next) => {
   try {
     const Users = await deleteUsers();
