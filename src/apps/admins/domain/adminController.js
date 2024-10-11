@@ -11,7 +11,7 @@ import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 import { createErrorResponse } from '../../../errors/utils/mongoDbErrorHandler/createErrorResponse.js';
 import { findUserByEmail } from '../../users/domain/usersController.js';
-import { restSequence, addSequenceId, readExcelFile } from '../services/adminServices.js';
+import { restSequence, readExcelFile } from '../services/adminServices.js';
 import bcrypt from 'bcryptjs';
 
 export const createNewUser = async (req, res, next) => {
@@ -32,8 +32,8 @@ export const createNewUser = async (req, res, next) => {
       // Add a default password that should be changed on first login
       password: await bcrypt.hash(String(12345678).trim(), 10),
     };
-    const userWithSequenceId = await addSequenceId(newUser, 'user');
-    const user = await createUser(userWithSequenceId);
+
+    const user = await createUser(newUser);
 
     if (!user) {
       throw new AppError(
@@ -78,8 +78,9 @@ export const createManyUsers = async (req, res, next) => {
         };
       }),
     );
-    const usersWithSequenceId = await addSequenceId(processedData, 'users');
-    const Users = await manyUsers(usersWithSequenceId);
+    // const usersWithSequenceId = await addSequenceId(processedData, 'users');
+
+    const Users = await manyUsers(processedData);
 
     if (Users) {
       return res.status(200).json({ message: 'Users created successfully' });
