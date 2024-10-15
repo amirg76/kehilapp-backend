@@ -32,6 +32,9 @@ export const deleltedItemOnDb = async (id) => {
   return await UserModel.deleteOne({ _id: id });
 };
 
+export const updateItemOnDb = async (id, updateData) => {
+  return await UserModel.updateOne({ _id: id }, { $set: updateData });
+};
 export const deleteUsers = async () => {
   return await UserModel.deleteMany({});
 };
