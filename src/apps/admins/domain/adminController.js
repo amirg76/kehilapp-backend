@@ -7,6 +7,7 @@ import {
   manyUsers,
   deleltedItemOnDb,
   deleteUsers,
+  updateItemOnDb,
 } from '../../../apps/admins/dataAccess/adminRepository.js';
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
@@ -86,6 +87,27 @@ export const createManyUsers = async (req, res, next) => {
     if (Users) {
       return res.status(200).json({ message: 'Users created successfully' });
     }
+  } catch (error) {
+    next(createErrorResponse(error));
+  }
+};
+
+export const updateItemFromTable = async (req, res, next) => {
+  try {
+    const update = req.body;
+
+    const updatedItem = await updateItemOnDb(update.id, update.updateData);
+
+    if (!updatedItem) {
+      throw new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+        true,
+      );
+    }
+
+    // return res.status(200).json(updatedItem);
+    return res.status(200).json({ message: 'Item updateted successfully' });
   } catch (error) {
     next(createErrorResponse(error));
   }
