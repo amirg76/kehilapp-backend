@@ -34,7 +34,8 @@ export const getUsers = async (req, res, next) => {
     );
   }
 
-  res.status(200).json(users);
+  res.status(200).json({ data: users });
+  // res.status(200).json(users);
 };
 
 export const getUserById = async (req, res, next) => {
