@@ -71,8 +71,9 @@
     "@apps": "./apps",
     "@config": "./config",
     "@errors": "src/errors",
-    "@middlewares": "./middlewares",
+    "@middlewares": "src/middlewares",
     "@services": "./services",
+    "@validations": "./validations",
     "@categories": "./apps/categories",
     "@messages": "./apps/messages",
     "@users": "./apps/users"

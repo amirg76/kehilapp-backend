@@ -5,6 +5,7 @@ import { connectDB } from './services/db.js';
 import app from './app.js';
 import AppError from './errors/AppError.js';
 import errorManagement from './errors/utils/errorManagement.js';
+import 'module-alias/register.js';
 
 // config({ path: './config/' }); //! replaced with regular dotenv library, bug fix
 connectDB()

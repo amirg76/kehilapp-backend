@@ -27,6 +27,20 @@
   },
   "settings": {
     "import/resolver": {
+      "alias": {
+        "map": [
+          ["@root", "."],
+          ["@apps", "./src/apps"],
+          ["@config", "./src/config"],
+          ["@errors", "./src/errors"],
+          ["@middlewares", "./src/middlewares"],
+          ["@services", "./src/services"],
+          ["@validations", "./src/validations"],
+          ["@categories", "./src/apps/categories"],
+          ["@messages", "./src/apps/messages"],
+          ["@users", "./src/apps/users"]
+        ]
+      },
       "node": {
         "extensions": [".js", ".json"]
       }
