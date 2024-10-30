@@ -1,6 +1,7 @@
 import express from 'express';
 import auth from '../../../middlewares/auth.js';
-import { validateAdminLogin } from './adminValidation.js';
+import { validateAdminLogin } from '../../../validations/middlewares/adminValidation.js';
+// import { validateAdminLogin } from '@validations/middlewares/adminValidation.js';
 import * as adminController from '../domain/adminController.js';
 import * as authController from '../../auth/domain/authController.js';
 import { validateUser } from '../../users/entryPoints/usersValidation.js';
@@ -9,7 +10,8 @@ import multer from 'multer';
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 // admin login
-router.post('/login', validateUser, validateAdminLogin, authController.login);
+router.post('/login', validateAdminLogin, authController.login);
+
 //create many users
 router.post('/add-many-users', auth, protectAdminRoute, upload.single('file'), adminController.createManyUsers);
 router.post('/delete-many-users', auth, protectAdminRoute, adminController.deleteManyUsers);

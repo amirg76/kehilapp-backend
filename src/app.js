@@ -43,6 +43,7 @@ app.use((err, req, res, next) => {
 
   const statusCode = err.statusCode || 500;
   const message = err.message || 'An error occurred';
+  console.log('app : ', err);
 
   res.status(statusCode).json({
     success: false,
