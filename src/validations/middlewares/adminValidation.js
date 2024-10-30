@@ -5,8 +5,6 @@ import errorManagement from '../../errors/utils/errorManagement.js';
 
 export const validateAdminLogin = async (req, res, next) => {
   try {
-    console.log('req.body', req.body);
-
     await adminLoginSchema.validateAsync(req.body, { abortEarly: false });
 
     const user = await User.findOne({ email: req.body.email });
