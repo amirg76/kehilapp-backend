@@ -1,10 +1,11 @@
 import AppError from '../../../errors/AppError.js';
-import errorManagement from '../../../errors/utils/errorManagement.js';
 import { getUserByEmail, createNewUser, findUserByEmail } from '../../users/domain/usersController.js';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import logger from '../../../services/logger.js';
+
 import { generateToken } from '../dataAccess/authRepository.js';
+import AppSuccess from '../../../utils/responses/successResponses/AppSuccess.js';
+import { successHandler } from '../../../utils/responses/successResponses/globalSuccessHandler.js';
+import { successResponses } from '../../../utils/responses/successResponses/responseManagement.js';
 export const registerUser = async (req, res, next) => {
   try {
     const { email, password, role } = req.body;
@@ -40,22 +41,34 @@ export const login = async (req, res, next) => {
     const user = await getUserByEmail(email, next);
 
     if (!user) {
-      return next(new AppError('Invalid User', 404));
+      return next(new AppError('Invalid User', 403));
     }
 
     if (user) {
       const isValidPassword = await bcrypt.compare(password, user.password);
 
       if (!isValidPassword) {
-        return next(new AppError('Invalid Password', 401));
+        return next(new AppError('סיסמא לא נכונה, נסה שוב', 401));
       }
 
       const token = await generateToken(user);
 
-      res.status(201).json({
-        success: true,
-        data: { token },
-      });
+      // Get the raw document fields from _doc and format the user data
+      const { password: _, ...userWithoutPassword } = user._doc;
+
+      // Set the user email for logging
+      res.locals.userEmail = email;
+
+      // Send standardized success response
+      const response = new AppSuccess(
+        {
+          token,
+          user: userWithoutPassword,
+        },
+        successResponses.ok.message,
+        successResponses.ok.code,
+      );
+      return successHandler(res, response);
     }
   } catch (error) {
     console.error(error);

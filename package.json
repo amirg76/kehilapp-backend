@@ -71,6 +71,7 @@
     "@apps": "./apps",
     "@config": "./config",
     "@errors": "src/errors",
+    "@utils": "src/utils",
     "@middlewares": "src/middlewares",
     "@services": "./services",
     "@validations": "./validations",

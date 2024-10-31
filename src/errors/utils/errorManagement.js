@@ -1,7 +1,7 @@
 export const commonErrors = {
   invalidInput: { message: 'Invalid Input', code: 400 },
   authenticationError: { message: 'Unauthorized', code: 401 },
-  authorizationError: { message: 'Forbidden', code: 403 },
+  authorizationError: { message: 'שם המשתמש אינו מנהל מערכת', code: 403 },
   resourceNotFound: { message: 'Not Found', code: 404 },
   databaseError: { message: 'Database Error', code: 500 },
   databaseDisconnectedError: { message: 'Database disconnected', code: 500 },
