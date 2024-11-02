@@ -1,9 +1,18 @@
 import errorManagement from './utils/errorManagement.js';
 import logger from '../services/logger.js';
 
+// Utility function to mask sensitive data
+const maskEmail = (email) => {
+  if (!email) return 'unknown';
+  const [name, domain] = email.split('@');
+  return `${name.charAt(0)}${new Array(name.length).join('*')}@${domain}`;
+};
 const globalErrorHandler = (error, req, res, next) => {
+  const userEmail = maskEmail(res.locals.userEmail) || 'unknown';
+  const ip = res.locals.ip;
+  const referer = req.headers.referer || req.headers.referrer || 'direct';
   // Construct the base log message
-  let logMessage = `${error.statusCode} - ${error.message} - ${req.originalUrl} - ${req.ip} - ${req.method}`;
+  let logMessage = `${error.statusCode} - ${error.message} - ${req.originalUrl} - ${ip} - ${referer} - ${req.method}- ${userEmail}`;
 
   // Add validation errors if they exist
   if (error.validationErrors && error.validationErrors.length > 0) {
