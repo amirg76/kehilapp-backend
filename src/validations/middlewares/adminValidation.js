@@ -4,6 +4,10 @@ import { adminLoginSchema } from '../schemas/adminSchema.js';
 import errorManagement from '../../errors/utils/errorManagement.js';
 
 export const validateAdminLogin = async (req, res, next) => {
+  // Set ip in res.locals for logging
+  res.locals.userEmail = req.body.email;
+  res.locals.ip = req.ip;
+
   try {
     await adminLoginSchema.validateAsync(req.body, { abortEarly: false });
 
@@ -19,7 +23,8 @@ export const validateAdminLogin = async (req, res, next) => {
       );
     }
 
-    req.user = user;
+    req.user = req.body.email;
+
     next();
   } catch (error) {
     next(error);

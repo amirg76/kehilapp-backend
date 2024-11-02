@@ -56,9 +56,6 @@ export const login = async (req, res, next) => {
       // Get the raw document fields from _doc and format the user data
       const { password: _, ...userWithoutPassword } = user._doc;
 
-      // Set the user email for logging
-      res.locals.userEmail = email;
-
       // Send standardized success response
       const response = new AppSuccess(
         {
