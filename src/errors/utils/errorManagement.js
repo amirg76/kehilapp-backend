@@ -1,10 +1,10 @@
 export const commonErrors = {
   invalidInput: { message: 'Invalid Input', code: 400 },
-  authenticationError: { message: 'Unauthorized', code: 401 },
+  authenticationError: { message: 'משתמש לא מורשה', code: 401 },
   authorizationError: { message: 'שם המשתמש אינו מנהל מערכת', code: 403 },
   resourceNotFound: { message: 'Not Found', code: 404 },
   databaseError: { message: 'Database Error', code: 500 },
-  databaseDisconnectedError: { message: 'Database disconnected', code: 500 },
+  databaseDisconnectedError: { message: 'תקלה בהתחברות למסד הנתונים', code: 500 },
   databaseClosingError: { message: 'Error closing database', code: 500 },
   duplicateResource: { message: 'Duplicate Resource', code: 409 },
   validationError: { message: 'Validation Error', code: 400 },
