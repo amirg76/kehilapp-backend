@@ -98,6 +98,7 @@ export const updateItemFromTable = async (req, res, next) => {
     const update = req.body;
 
     const updatedItem = await updateItemOnDb(update.id, update.updateData);
+    // const updatedItem = false;
 
     if (!updatedItem) {
       throw new AppError(
@@ -108,7 +109,7 @@ export const updateItemFromTable = async (req, res, next) => {
     }
 
     // return res.status(200).json(updatedItem);
-    return res.status(200).json({ message: 'Item updateted successfully' });
+    return res.status(200).json({ message: 'Item updateted successfully', success: true });
   } catch (error) {
     next(createErrorResponse(error));
   }
@@ -118,6 +119,7 @@ export const deleteItemFromTable = async (req, res, next) => {
     const deleteId = req.body.id;
 
     const deleltedItem = await deleltedItemOnDb(deleteId);
+    // const deleltedItem = false;
 
     if (!deleltedItem) {
       throw new AppError(
@@ -126,7 +128,7 @@ export const deleteItemFromTable = async (req, res, next) => {
         true,
       );
     }
-    return res.status(200).json({ message: 'Item deleted successfully' });
+    return res.status(200).json({ message: 'Item deleted successfully', success: true });
   } catch (error) {
     next(createErrorResponse(error));
   }
