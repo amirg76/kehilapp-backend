@@ -12,9 +12,20 @@
     "prettier"
   ],
   "parser": "espree",
-  "plugins": ["eslint-comments", "jest", "promise", "import", "prettier"],
+  "plugins": [
+    "eslint-comments",
+    "jest",
+    "promise",
+    "import",
+    "prettier"
+  ],
   "rules": {
-    "prettier/prettier": "error",
+    "prettier/prettier": [
+      "error",
+      {
+        "endOfLine": "auto"
+      }
+    ],
     "no-use-before-define": [
       "error",
       {
@@ -28,8 +39,15 @@
   "settings": {
     "import/resolver": {
       "node": {
-        "extensions": [".js", ".json"]
+        "extensions": [
+          ".js",
+          ".json"
+        ]
       }
     }
+  },
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module"
   }
 }

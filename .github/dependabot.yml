@@ -1,0 +1,18 @@
+# Weekly dependency PRs. Each lands as its own pull request and has to pass the
+# full CI floor — including the route-guard gates — before a human merges it.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Patch/minor bumps arrive as one PR; majors stay separate and visible.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
