@@ -19,8 +19,16 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
 
 // get messages filtered by query and categories
 export const getMessages = async (req, res, next) => {
-  const { searchTerm, categoryId } = req.query;
-  const messages = await getMessagesFromDb(searchTerm, categoryId);
+  const { searchTerm, categoryId, page, limit } = req.query;
+  // optionalAuth sets req.userId only for a valid session. A signed-in caller
+  // sees both tiers; an anonymous one sees public content only.
+  const includeMembers = Boolean(req.userId);
+  const {
+    items: messages,
+    total,
+    page: currentPage,
+    limit: pageSize,
+  } = await getMessagesFromDb(searchTerm, categoryId, { page, limit, includeMembers });
   if (!messages) {
     return next(
       new AppError(
@@ -31,21 +39,31 @@ export const getMessages = async (req, res, next) => {
     );
   }
 
-  // get file signed url for all uploaded attachments
-  for (const message of messages) {
-    if (message.attachmentKey) {
-      const url = await getFileSignedURL('messages', message.attachmentKey);
-      message.attachmentUrl = url;
-    }
-  }
+  // Sign attachment URLs concurrently — sequential awaits made response time
+  // grow linearly with the number of attachments on the page.
+  await Promise.all(
+    messages.map(async (message) => {
+      if (message.attachmentKey) {
+        message.attachmentUrl = await getFileSignedURL('messages', message.attachmentKey);
+      }
+    }),
+  );
 
+  // Body stays the plain array so existing clients keep working; pagination
+  // metadata rides in headers.
+  res.set('X-Total-Count', String(total));
+  res.set('X-Page', String(currentPage));
+  res.set('X-Page-Size', String(pageSize));
   res.status(200).json(messages);
 };
 
 // get message by id
 export const getMessageById = async (req, res, next) => {
   const { id } = req.params;
-  const message = await getMessageByIdFromDb(id);
+  // A members-only message requested by an anonymous caller does not match the
+  // query and comes back null → a 404 below, which never reveals its existence.
+  const includeMembers = Boolean(req.userId);
+  const message = await getMessageByIdFromDb(id, { includeMembers });
 
   if (!message) {
     return next(
@@ -68,6 +86,9 @@ export const getMessageById = async (req, res, next) => {
 // create a new message
 export const createMessage = async (req, res) => {
   const { categoryId, title, text } = req.body;
+  // Attribution comes from the verified token — never from the body, where any
+  // caller could claim to be anyone. This closes the old TODO in the repository.
+  const senderId = req.userId;
   const file = req.file;
   //TODO: get user id from auth token
 
@@ -78,7 +99,7 @@ export const createMessage = async (req, res) => {
     attachmentKey = await uploadFileToBucket('messages', file);
   }
 
-  let message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType);
+  let message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType, senderId);
 
   if (attachmentKey) {
     message = message.toObject();
@@ -90,26 +111,42 @@ export const createMessage = async (req, res) => {
 };
 
 // update a message, and replace an existing file
-export const updateMessage = async (req, res) => {
+export const updateMessage = async (req, res, next) => {
   const { id } = req.params;
   const { categoryId, title, text } = req.body;
   const file = req.file;
 
-  let attachmentName, attachmentType, attachmentKey; //attachment file properties
+  const fields = { categoryId, title, text };
   if (file) {
-    attachmentName = file.originalname;
-    attachmentType = file.mimetype;
+    fields.attachmentName = file.originalname;
+    fields.attachmentType = file.mimetype;
+    // attachmentKey is deliberately left untouched: the existing S3 object is
+    // overwritten in place below, so its key does not change.
   }
 
-  let message;
-  message = await updateMessageInDb(id, categoryId, title, text, attachmentName, attachmentType);
+  // Ownership is enforced in the repository: a member may edit only their own
+  // message, an admin any. A null result means "not yours, or does not exist".
+  const message = await updateMessageInDb(id, fields, {
+    requesterId: req.userId,
+    isAdmin: req.role === 'admin',
+  });
 
-  // if there is a a file, replace it with the same name
+  if (!message) {
+    return next(
+      new AppError(
+        errorManagement.commonErrors.resourceNotFound.message,
+        errorManagement.commonErrors.resourceNotFound.code,
+        true,
+      ),
+    );
+  }
+
+  // Replace the file contents under the message's existing key.
   if (file && message.attachmentKey) {
     await updateFileInBucket('messages', message.attachmentKey, file);
   }
 
-  res.status(200).json(message);
+  return res.status(200).json(message);
 };
 
 // delete a message

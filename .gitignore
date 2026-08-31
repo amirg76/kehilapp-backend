@@ -4,6 +4,7 @@
 # env files
 .env
 .env.*
+!.env.example
 
 # misc
 .DS_Store
@@ -11,3 +12,5 @@
 
 # logs
 /src/logs
+# Cygwin/MSYS crash dumps — a tool crashed here once and left this behind.
+*.stackdump
