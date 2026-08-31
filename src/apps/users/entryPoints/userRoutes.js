@@ -1,24 +1,15 @@
 import express from 'express';
 import auth from '../../../middlewares/auth.js';
+import requireRole from '../../../middlewares/requireRole.js';
 import { getUserByIdValidation } from './usersValidation.js';
 import * as usersController from '../domain/usersController.js';
 
 const router = express.Router();
 
-//get all messages
-router.get(
-  '/',
-  // auth,
-  usersController.getUsers,
-);
+// The full member directory is admin-only: it is the one endpoint that hands
+// back every account in the system at once.
+router.get('/', auth, requireRole('admin'), usersController.getUsers);
 
-router.get(
-  // if we wouldn't get the userId from auth, we would get it from the params
-  '/:userId',
-  getUserByIdValidation,
-  //TODO: check the problem with the auth middleware. it throws an unauthorized error.
-  // auth,
-  usersController.getUserById,
-);
+router.get('/:userId', auth, getUserByIdValidation, usersController.getUserById);
 
 export default router;

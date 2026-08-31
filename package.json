@@ -10,12 +10,12 @@
     "dev": "cross-env NODE_ENV=dev nodemon src/index.js",
     "prod": "cross-env NODE_ENV=prod nodemon src/index.js",
     "test": "jest",
-    "test:unit": "jest unit",
-    "test:int": "jest int",
+    "test:unit": "jest --selectProjects unit",
+    "test:int": "jest --selectProjects int --runInBand",
     "test:coverage": "jest --coverage",
     "format": "npm run prettier:fix && npm run lint:fix",
-    "lint:fix": "npm run lint -- --fix",
-    "lint": "eslint \"**/*.js\" --ignore-pattern node_modules/",
+    "lint:fix": "eslint src --ext .js --fix",
+    "lint": "eslint src --ext .js",
     "prettier": "npx prettier *.js --check",
     "prettier:fix": "npm run prettier -- --write"
   },
@@ -44,18 +44,23 @@
     "husky": "^7.0.2",
     "jest": "^27.1.0",
     "lint-staged": "^11.1.2",
-    "nodemon": "^2.0.12",
-    "prettier": "^2.3.2"
+    "nodemon": "^3.1.14",
+    "prettier": "^2.3.2",
+    "supertest": "^7.2.2"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.489.0",
     "@aws-sdk/s3-request-presigner": "^3.490.0",
+    "bcryptjs": "^3.0.3",
     "celebrate": "^15.0.1",
     "colors": "^1.4.0",
     "cookie-parser": "^1.4.6",
     "dotenv": "^10.0.0",
     "dotenv-flow": "^3.2.0",
     "express-async-errors": "^3.1.1",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.6.2",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.1",
     "module-alias": "^2.2.3",
     "mongodb-memory-server": "^8.15.0",
@@ -74,5 +79,8 @@
     "@categories": "./apps/categories",
     "@messages": "./apps/messages",
     "@users": "./apps/users"
+  },
+  "overrides": {
+    "lodash": "^4.18.1"
   }
 }

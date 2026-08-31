@@ -20,6 +20,10 @@ export const uploadFileToBucket = async (directory, file) => {
       Key: `${directory}/${fileKey}`,
       Body: file.buffer,
       ContentType: file.mimetype,
+      // Force a download instead of inline rendering, so a booby-trapped file
+      // (e.g. an SVG or HTML that slipped past the filter) cannot execute in
+      // the storage origin when its signed URL is opened.
+      ContentDisposition: 'attachment',
     });
     await s3.send(command);
     return fileKey;
@@ -33,6 +37,7 @@ export const updateFileInBucket = async (directory, existingKey, file) => {
     Key: `${directory}/${existingKey}`,
     Body: file.buffer,
     ContentType: file.mimetype,
+    ContentDisposition: 'attachment',
   });
   return await s3.send(command);
 };
