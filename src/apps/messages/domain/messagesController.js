@@ -17,6 +17,25 @@ import {
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 
+/**
+ * Decides which content tier a write may land in.
+ *
+ * Publishing to the members-only tier is an admin act. Joi cannot make this call
+ * — it never sees req.role — and the repository deliberately stays role-agnostic
+ * (see the ownership comment there), so the decision belongs here, alongside the
+ * existing isAdmin check in updateMessage.
+ *
+ * A non-admin asking for 'members' is not an error: the resident UI never offers
+ * the choice, so the request is quietly normalised — 'public' on create, and no
+ * visibility change at all on update.
+ */
+const resolveVisibility = (req, { onUpdate = false } = {}) => {
+  if (req.role === 'admin' && (req.body.visibility === 'members' || req.body.visibility === 'public')) {
+    return req.body.visibility;
+  }
+  return onUpdate ? undefined : 'public';
+};
+
 // get messages filtered by query and categories
 export const getMessages = async (req, res, next) => {
   const { searchTerm, categoryId, page, limit } = req.query;
@@ -89,8 +108,8 @@ export const createMessage = async (req, res) => {
   // Attribution comes from the verified token — never from the body, where any
   // caller could claim to be anyone. This closes the old TODO in the repository.
   const senderId = req.userId;
+  const visibility = resolveVisibility(req);
   const file = req.file;
-  //TODO: get user id from auth token
 
   let attachmentName, attachmentType, attachmentKey; //attachment file properties
   if (file) {
@@ -99,7 +118,16 @@ export const createMessage = async (req, res) => {
     attachmentKey = await uploadFileToBucket('messages', file);
   }
 
-  let message = await addMessageToDb(categoryId, title, text, attachmentName, attachmentKey, attachmentType, senderId);
+  let message = await addMessageToDb(
+    categoryId,
+    title,
+    text,
+    attachmentName,
+    attachmentKey,
+    attachmentType,
+    senderId,
+    visibility,
+  );
 
   if (attachmentKey) {
     message = message.toObject();
@@ -117,6 +145,11 @@ export const updateMessage = async (req, res, next) => {
   const file = req.file;
 
   const fields = { categoryId, title, text };
+  // undefined means "leave the stored tier alone" — the repository strips it.
+  const visibility = resolveVisibility(req, { onUpdate: true });
+  if (visibility !== undefined) {
+    fields.visibility = visibility;
+  }
   if (file) {
     fields.attachmentName = file.originalname;
     fields.attachmentType = file.mimetype;

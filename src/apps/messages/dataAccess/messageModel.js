@@ -4,7 +4,9 @@ import mongoose, { Schema } from 'mongoose';
 const messageSchema = new Schema(
   {
     categoryId: { type: String, required: true },
-    senderId: { type: String }, //* required: true - temporary remove requirment, to be replaced with auth
+    // The controller always sets this from the authenticated token, so a message
+    // with no author can no longer be written.
+    senderId: { type: String, required: true },
     title: { type: String, required: true },
     text: { type: String },
     // Content tier. 'public' is readable by anyone (the showcase posture);

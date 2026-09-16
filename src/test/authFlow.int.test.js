@@ -108,7 +108,7 @@ describe('authorization', () => {
   });
 
   it('lets an admin do what a member cannot', async () => {
-    await Message.create({ categoryId: 'cat-1', title: 'to be deleted', text: 'x' });
+    await Message.create({ categoryId: 'cat-1', title: 'to be deleted', text: 'x', senderId: String(admin._id) });
     const token = await loginAs('admin@test.example.com');
 
     const destroy = await request(app).delete('/api/messages').set('Authorization', `Bearer ${token}`);
@@ -147,6 +147,7 @@ describe('messages', () => {
       categoryId: 'cat-1',
       title: `הודעה ${i + 1}`,
       text: 'תוכן',
+      senderId: String(member._id),
     }));
     await Message.create(docs);
 

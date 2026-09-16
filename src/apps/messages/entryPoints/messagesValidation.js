@@ -22,7 +22,10 @@ export const createMessageValidation = celebrate({
   body: Joi.object().keys({
     categoryId: Joi.string().required(),
     title: Joi.string().min(messageConstants.titleMinLength).max(messageConstants.titleMaxLength).required(),
-    text: Joi.string().allow('').optional(),
+    text: Joi.string().allow('').max(messageConstants.textMaxLength).optional(),
+    // Joi only checks the value is a known tier. WHO may ask for 'members' is a
+    // role question, and Joi cannot see req.role — the controller decides.
+    visibility: Joi.string().valid('public', 'members').optional(),
     file: Joi.optional(),
   }),
 });
@@ -36,7 +39,9 @@ export const updateMessageValidation = celebrate({
     title: Joi.string().min(messageConstants.titleMinLength).max(messageConstants.titleMaxLength).required(),
     // Mirrors createMessageValidation — the controller reads req.body.text, so
     // the update schema must permit it or every edit with a body 400s.
-    text: Joi.string().allow('').optional(),
+    text: Joi.string().allow('').max(messageConstants.textMaxLength).optional(),
+    // Same as create: value check here, role check in the controller.
+    visibility: Joi.string().valid('public', 'members').optional(),
     file: Joi.optional(),
   }),
 });

@@ -25,7 +25,7 @@ let membersMsg;
 
 beforeEach(async () => {
   const passwordHash = await bcrypt.hash(PASSWORD, 4);
-  await User.create({
+  const member = await User.create({
     name: 'Member Test',
     email: 'member@test.example.com',
     role: 'member',
@@ -33,9 +33,22 @@ beforeEach(async () => {
     emailVerified: true,
   });
 
+  // senderId is required on the model now: every message has an author.
   [publicMsg, membersMsg] = await Message.create([
-    { categoryId: 'cat-1', title: 'הודעה ציבורית', text: 'גלוי לכולם', visibility: 'public' },
-    { categoryId: 'cat-1', title: 'הודעת חברים', text: '(תוכן לחברים בלבד)', visibility: 'members' },
+    {
+      categoryId: 'cat-1',
+      title: 'הודעה ציבורית',
+      text: 'גלוי לכולם',
+      visibility: 'public',
+      senderId: String(member._id),
+    },
+    {
+      categoryId: 'cat-1',
+      title: 'הודעת חברים',
+      text: '(תוכן לחברים בלבד)',
+      visibility: 'members',
+      senderId: String(member._id),
+    },
   ]);
 });
 
