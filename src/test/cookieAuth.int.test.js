@@ -12,7 +12,7 @@ import User from '../apps/users/dataAccess/userModel.js';
 
 beforeEach(async () => {
   await User.deleteMany({});
-  const passwordHash = await bcrypt.hash('seed-demo-pw-placeholder', 4);
+  const passwordHash = await bcrypt.hash('cookie-fixture-pw-A7f2', 4);
   await User.create({
     name: 'Cookie Admin',
     email: 'cookie-admin@test.example.com',
@@ -30,7 +30,7 @@ const loginAgent = async () => {
   const agent = request.agent(app);
   const res = await agent
     .post('/api/auth/login')
-    .send({ email: 'cookie-admin@test.example.com', password: 'seed-demo-pw-placeholder' });
+    .send({ email: 'cookie-admin@test.example.com', password: 'cookie-fixture-pw-A7f2' });
   return { agent, csrf: res.body.csrfToken, res };
 };
 
