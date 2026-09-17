@@ -29,7 +29,14 @@ jobs:
     name: "Floor: deterministic gate"
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 because the secret scan below diffs a commit range. A
+      # shallow clone leaves the base commit unfetched, and gitleaks then fails
+      # to resolve it -- or, worse, scans zero bytes and reports no leaks
+      # found, which reads as a pass. A scanner that cannot see history cannot
+      # scan history.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
