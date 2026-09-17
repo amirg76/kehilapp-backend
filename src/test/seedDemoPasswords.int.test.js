@@ -75,6 +75,46 @@ const runSeed = (env = {}) => {
 };
 
 /**
+ * The one failure this retries, and why it is not a blanket retry.
+ *
+ * These tests spawn the real seed as a child process against the in-memory
+ * MongoDB the suite is already running. On a loaded shared runner the third
+ * spawn in this file has been observed losing a race while opening a pool
+ * connection -- the driver reports MongoNetworkTimeoutError before the
+ * handshake, the seed exits 1, and nothing about the seed's behaviour was
+ * actually tested. It passes locally every time, including under the exact
+ * command CI runs.
+ *
+ * Four separate environment causes were found and fixed before this was added
+ * (the OpenSSL 1.1 dependency, a MongoDB line with no build for the runner
+ * image, timeouts in the scripts themselves, and wiredTiger's cache sizing).
+ * This one survived all of them, so it is treated as what it is: contention,
+ * not behaviour.
+ *
+ * Deliberately narrow. Only that error, only once, and the second attempt is
+ * reported in full if it fails too -- so a real regression still fails the
+ * build, twice as loudly.
+ */
+const CONNECTION_FLAKE = /MongoNetworkTimeoutError|connection \d+ to .* timed out/;
+
+const runSeedAllowingOneConnectionFlake = (env = {}) => {
+  const first = runSeed(env);
+  if (first.status === 0 || !CONNECTION_FLAKE.test(first.stderr)) return first;
+
+  const second = runSeed(env);
+  if (second.status === 0) return second;
+
+  return {
+    ...second,
+    stderr: `attempt 1:
+${first.stderr}
+
+attempt 2:
+${second.stderr}`,
+  };
+};
+
+/**
  * Asserts the seed exited cleanly, and puts its stderr in the failure message
  * when it did not. A test that reports only "expected 0, received 1" sends the
  * reader to a CI log to find out what the process actually said -- and if the
@@ -107,10 +147,10 @@ describe('scripts/seedDemo.js generates its passwords instead of carrying them',
   jest.setTimeout(180000);
 
   it('issues DIFFERENT passwords on two consecutive runs', () => {
-    const first = runSeed();
+    const first = runSeedAllowingOneConnectionFlake();
     expect(first.status).toBe(0);
 
-    const second = runSeed();
+    const second = runSeedAllowingOneConnectionFlake();
     expect(second.status).toBe(0);
 
     const a = credentialsFrom(first.stdout);
@@ -136,7 +176,7 @@ describe('scripts/seedDemo.js generates its passwords instead of carrying them',
 
   it('uses the password the environment provides, when it provides one', () => {
     const chosen = `env-chosen-${Date.now()}-abcdefgh`;
-    const { status, stdout, stderr } = runSeed({ DEMO_PASSWORD: chosen });
+    const { status, stdout, stderr } = runSeedAllowingOneConnectionFlake({ DEMO_PASSWORD: chosen });
 
     expectCleanExit({ status, stderr });
 
@@ -149,7 +189,10 @@ describe('scripts/seedDemo.js generates its passwords instead of carrying them',
   it('lets the per-role variables override the shared one', () => {
     const shared = `shared-${Date.now()}-aaaaaaaa`;
     const adminOnly = `admin-${Date.now()}-bbbbbbbb`;
-    const { status, stdout, stderr } = runSeed({ DEMO_PASSWORD: shared, DEMO_ADMIN_PASSWORD: adminOnly });
+    const { status, stdout, stderr } = runSeedAllowingOneConnectionFlake({
+      DEMO_PASSWORD: shared,
+      DEMO_ADMIN_PASSWORD: adminOnly,
+    });
 
     expectCleanExit({ status, stderr });
     const creds = credentialsFrom(stdout);
