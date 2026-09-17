@@ -47,7 +47,7 @@ jobs:
       # its recent history. This repo's own past made the case: plaintext
       # credential files sat in a sibling project folder for years.
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
