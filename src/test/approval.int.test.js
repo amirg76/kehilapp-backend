@@ -175,6 +175,33 @@ describe('who may approve', () => {
     expect(reread.approved).toBe(false);
   });
 
+  it('refuses to approve an unverified account, and leaves it unapproved', async () => {
+    // Verifying an email proves the address; approving is the separate human
+    // decision that its holder belongs here. Admitting an UNverified account
+    // would mean the "pending" queue (emailVerified && !approved, see the
+    // admin dashboard's home tile) could contain an approved-but-unverified
+    // account — a state that queue is defined to never produce.
+    const unverified = await User.create({
+      name: 'Unverified Signup',
+      email: 'approval-unverified@test.example.com',
+      role: 'member',
+      passwordHash: await bcrypt.hash(PASSWORD, 4),
+      emailVerified: false,
+      approved: false,
+    });
+
+    const token = await loginAs(ADMIN_EMAIL);
+    const res = await request(app)
+      .patch(`/api/users/${unverified._id}/approve`)
+      .set('Authorization', `Bearer ${token}`)
+      .send();
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/not verified/i);
+    const reread = await User.findById(unverified._id).lean();
+    expect(reread.approved).toBe(false);
+  });
+
   it('answers 404 when an admin approves an id that matches nobody', async () => {
     const token = await loginAs(ADMIN_EMAIL);
     // Well-formed but unused: the id must reach the lookup, so this tests the

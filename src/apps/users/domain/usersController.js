@@ -114,6 +114,28 @@ export const getUserById = async (req, res, next) => {
 export const approveUser = async (req, res, next) => {
   const { userId } = req.params;
 
+  const target = await getUserFromDb(userId);
+  if (!target) {
+    return next(notFoundError());
+  }
+
+  // Approval means admitting a PROVEN address to the community — verifying an
+  // email proves the caller controls it; approving is the separate human
+  // decision that they belong here. Without this check an admin could admit
+  // an account nobody has confirmed is real yet (approved:true with
+  // emailVerified:false), which is exactly the state the "pending" queue this
+  // endpoint serves is defined to exclude (see the admin dashboard's home
+  // tile, which counts pending as emailVerified && !approved).
+  if (!target.emailVerified) {
+    return next(
+      new AppError(
+        'Cannot approve an account whose email is not verified yet.',
+        errorManagement.commonErrors.badRequest.code,
+        true,
+      ),
+    );
+  }
+
   const user = await setUserApprovalInDb(userId, { approved: true, actorId: String(req.userId) });
   if (!user) {
     return next(notFoundError());
