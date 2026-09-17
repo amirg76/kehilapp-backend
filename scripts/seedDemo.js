@@ -65,7 +65,51 @@ const passwordFor = (roleVar) => process.env[roleVar] || process.env.DEMO_PASSWO
  * Atlas demo shares its cluster with non-demo databases, which is exactly why
  * atlas-stack.cjs forces a dedicated database in the first place.
  */
-const DEMO_DATABASES = ['kehilapp_demo', process.env.ATLAS_DEMO_DB].filter(Boolean);
+const APPLICATION_DATABASE = 'kehilapp';
+const DEMO_SUFFIX = '_demo';
+
+/**
+ * ATLAS_DEMO_DB, but only if it actually names a demo database.
+ *
+ * The second entry of the allowlist USED TO BE `process.env.ATLAS_DEMO_DB` raw,
+ * accepted unchecked. That made the allowlist writable from the environment, so
+ *
+ *     ATLAS_DEMO_DB=kehilapp NODE_ENV=development node scripts/seedDemo.js
+ *
+ * put the real board straight back on the list of databases this script may
+ * wipe — one variable undoing the whole guard, with the comment above still
+ * claiming only two named databases were allowed.
+ *
+ * THE RULE: the name must end in `_demo`. Chosen because it is not a blocklist —
+ * a blocklist of `kehilapp` would still have let through `kehilapp-prod`, the
+ * board's backup, or any other real database — and because it is the convention
+ * the project already follows (`kehilapp_demo` in both stack scripts). A database
+ * somebody is willing to see emptied and refilled with invented content can be
+ * renamed to say so; a production database cannot be renamed by accident.
+ *
+ * An invalid value is REFUSED, not ignored. Silently dropping it would leave the
+ * Atlas operator staring at a refusal naming a database they thought they had
+ * allowed.
+ */
+const atlasDemoDatabase = () => {
+  const raw = (process.env.ATLAS_DEMO_DB || '').trim();
+  if (!raw) return '';
+  if (raw === APPLICATION_DATABASE) {
+    console.error(
+      `seedDemo: refusing ATLAS_DEMO_DB="${raw}" — that is the name of the real application database. This script deletes every category and message it finds; it will not be pointed at the board by an environment variable.`,
+    );
+    process.exit(1);
+  }
+  if (!raw.endsWith(DEMO_SUFFIX)) {
+    console.error(
+      `seedDemo: refusing ATLAS_DEMO_DB="${raw}" — a database this script may empty must be named as one, ending in "${DEMO_SUFFIX}". Rename the demo database, or seed it by hand.`,
+    );
+    process.exit(1);
+  }
+  return raw;
+};
+
+const DEMO_DATABASES = ['kehilapp_demo', atlasDemoDatabase()].filter(Boolean);
 
 /**
  * The database a Mongo connection string resolves to, or '' when it names none.

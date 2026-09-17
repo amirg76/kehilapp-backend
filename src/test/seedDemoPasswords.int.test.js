@@ -39,7 +39,11 @@ import mongoose from 'mongoose';
 const repoRoot = process.cwd();
 const seedPath = path.join('scripts', 'seedDemo.js');
 
-const DEMO_DB = 'kehilapp_demo_passwords';
+// The suffix is not decoration: ATLAS_DEMO_DB is now validated, and a name that
+// does not end in `_demo` is refused outright — see the rule and its reasoning in
+// scripts/seedDemo.js. This database was called `kehilapp_demo_passwords`, which
+// the rule (correctly) rejects.
+const DEMO_DB = 'kehilapp_passwords_demo';
 
 let demoUri;
 

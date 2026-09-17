@@ -14,7 +14,7 @@
  * src/test/seedDemoGuard.test.js and src/test/approveExistingUsers.int.test.js,
  * because for a script the exit code IS the contract.
  */
-import { isProduction, isKnownNonProduction, nodeEnvName } from '../config/environment.js';
+import { isProduction, isKnownNonProduction, nodeEnvName, assertKnownEnvironment } from '../config/environment.js';
 import { authCookieOptions, csrfCookieOptions } from '../config/cookies.js';
 
 const ORIGINAL_ENV = { ...process.env };
@@ -79,9 +79,112 @@ describe('config/cookies.js — the session cookie under NODE_ENV=prod', () => {
     expect(authCookieOptions().secure).toBe(false);
   });
 
-  it('still lets COOKIE_SECURE override explicitly', () => {
+  it('keeps secure on for an environment it does not recognise — FAIL-CLOSED', () => {
+    // This call site asks isKnownNonProduction(), not isProduction(). The
+    // difference is the whole point: isProduction() answers FALSE for 'staging',
+    // for a typo and for an unset NODE_ENV, and the false branch drops `secure`.
+    // src/index.js now refuses to boot on such a value, but this module is also
+    // imported directly — by this very test — so it does not rely on that.
+    withEnv({ NODE_ENV: 'staging', COOKIE_SECURE: undefined, COOKIE_SAMESITE: undefined });
+    expect(authCookieOptions().secure).toBe(true);
+
+    withEnv({ NODE_ENV: undefined, COOKIE_SECURE: undefined, COOKIE_SAMESITE: undefined });
+    expect(authCookieOptions().secure).toBe(true);
+    expect(csrfCookieOptions().secure).toBe(true);
+  });
+
+  it('still lets COOKIE_SECURE turn the flag off explicitly', () => {
     withEnv({ NODE_ENV: 'prod', COOKIE_SECURE: 'false', COOKIE_SAMESITE: undefined });
     expect(authCookieOptions().secure).toBe(false);
+  });
+});
+
+/**
+ * COOKIE_SECURE used to be read as `=== 'true'`, so it accepted exactly ONE
+ * spelling and silently treated every other one — including every spelling that
+ * obviously means "on" — as `false`. In production that quietly removed the
+ * session cookie's Secure flag, with no error anywhere.
+ *
+ * This describe block replaces the single "still lets COOKIE_SECURE override
+ * explicitly" case that used to pin the old behaviour as desired. That case
+ * survives above (an explicit `false` is still honoured — it is the deliberate
+ * opt-out for a developer on http); what has changed is everything around it.
+ */
+describe('config/cookies.js — COOKIE_SECURE is normalised, and a typo cannot disable it', () => {
+  it.each(['true', 'TRUE', 'True', ' true ', '1', 'yes', 'Y', 'on', 'ON'])(
+    'reads %p as ON, even where the environment says development',
+    (value) => {
+      withEnv({ NODE_ENV: 'local', COOKIE_SECURE: value, COOKIE_SAMESITE: undefined });
+      expect(authCookieOptions().secure).toBe(true);
+    },
+  );
+
+  it.each(['false', 'FALSE', ' false ', '0', 'no', 'N', 'off', 'OFF'])(
+    'reads %p as OFF, even where the environment says production',
+    (value) => {
+      withEnv({ NODE_ENV: 'prod', COOKIE_SECURE: value, COOKIE_SAMESITE: undefined });
+      expect(authCookieOptions().secure).toBe(false);
+    },
+  );
+
+  it.each(['maybe', 'ture', 'enabled', 'si'])('THROWS on %p rather than reading it as false', (value) => {
+    withEnv({ NODE_ENV: 'prod', COOKIE_SECURE: value, COOKIE_SAMESITE: undefined });
+    expect(() => authCookieOptions()).toThrow(/COOKIE_SECURE/);
+  });
+});
+
+/**
+ * COOKIE_SAMESITE was lowercased but never trimmed. A trailing space in a .env
+ * file — invisible in an editor, preserved by dotenv — reached the `cookie`
+ * package as 'lax ', which it does not recognise; res.cookie() threw, and every
+ * login and logout returned 500.
+ */
+describe('config/cookies.js — COOKIE_SAMESITE is trimmed and validated', () => {
+  it.each([
+    ['lax ', 'lax'],
+    [' strict', 'strict'],
+    ['  LAX  ', 'lax'],
+    ['Strict', 'strict'],
+  ])('reads %p as %p', (value, expected) => {
+    withEnv({ NODE_ENV: 'local', COOKIE_SAMESITE: value, COOKIE_SECURE: undefined });
+    expect(authCookieOptions().sameSite).toBe(expected);
+  });
+
+  it('still forces Secure on when SameSite is none, whitespace and all', () => {
+    withEnv({ NODE_ENV: 'local', COOKIE_SAMESITE: ' none ', COOKIE_SECURE: undefined });
+    expect(authCookieOptions().sameSite).toBe('none');
+    expect(authCookieOptions().secure).toBe(true);
+  });
+
+  it('defaults to lax when unset or blank', () => {
+    withEnv({ NODE_ENV: 'local', COOKIE_SAMESITE: undefined, COOKIE_SECURE: undefined });
+    expect(authCookieOptions().sameSite).toBe('lax');
+
+    withEnv({ NODE_ENV: 'local', COOKIE_SAMESITE: '   ', COOKIE_SECURE: undefined });
+    expect(authCookieOptions().sameSite).toBe('lax');
+  });
+
+  it('THROWS on a value the cookie package would reject', () => {
+    withEnv({ NODE_ENV: 'local', COOKIE_SAMESITE: 'laxx', COOKIE_SECURE: undefined });
+    expect(() => authCookieOptions()).toThrow(/COOKIE_SAMESITE/);
+  });
+});
+
+describe('config/environment.js — assertKnownEnvironment', () => {
+  it.each(['local', 'dev', 'development', 'test', 'production', 'prod'])('accepts %p', (value) => {
+    withEnv({ NODE_ENV: value });
+    expect(() => assertKnownEnvironment()).not.toThrow();
+  });
+
+  it.each(['staging', 'prod-eu', 'Produciton', ''])('refuses %p', (value) => {
+    withEnv({ NODE_ENV: value });
+    expect(() => assertKnownEnvironment()).toThrow(/NODE_ENV=/);
+  });
+
+  it('refuses an unset NODE_ENV and names every value it would accept', () => {
+    withEnv({ NODE_ENV: undefined });
+    expect(() => assertKnownEnvironment()).toThrow(/\(unset\)/);
+    expect(() => assertKnownEnvironment()).toThrow(/local, dev, development, test, production, prod/);
   });
 });
 
@@ -123,6 +226,22 @@ describe('middlewares/cors.js — the allowlist under NODE_ENV=prod', () => {
     const middleware = await loadCors();
 
     expect(headersFor(middleware, 'http://localhost:3000')['Access-Control-Allow-Origin']).toBeUndefined();
+  });
+
+  it('does not allow it under an UNRECOGNISED NODE_ENV either — FAIL-CLOSED', async () => {
+    // The fallback is gated on isKnownNonProduction(), not on !isProduction().
+    // Under the old question 'staging' and an unset value both took the
+    // development branch and put localhost back on the allowlist beside
+    // Allow-Credentials: true.
+    withEnv({ NODE_ENV: 'staging', ALLOWED_ORIGINS: undefined });
+    const staging = await loadCors();
+    expect(headersFor(staging, 'http://localhost:5173')['Access-Control-Allow-Origin']).toBeUndefined();
+
+    withEnv({ NODE_ENV: undefined, ALLOWED_ORIGINS: undefined });
+    const unset = await loadCors();
+    const headers = headersFor(unset, 'http://localhost:5173');
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined();
+    expect(headers['Access-Control-Allow-Credentials']).toBeUndefined();
   });
 
   it('keeps the dev fallback for a known development environment', async () => {

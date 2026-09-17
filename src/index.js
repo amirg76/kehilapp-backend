@@ -6,6 +6,49 @@ import app from './app.js';
 import logger from './services/logger.js';
 import AppError from './errors/AppError.js';
 import errorManagement from './errors/utils/errorManagement.js';
+import { assertKnownEnvironment } from './config/environment.js';
+import { assertCookieConfig } from './config/cookies.js';
+
+/**
+ * REFUSE TO BOOT INTO AN ENVIRONMENT NOBODY NAMED.
+ *
+ * This is the first thing the server does, before it connects to a database and
+ * before it listens, because everything after it branches on the answer.
+ *
+ * package.json's `start` is `node src/index.js` — no NODE_ENV — and that is the
+ * command a hosting platform runs. There is no Dockerfile, Procfile or deploy
+ * workflow in this repository pinning one either. An unset or unrecognised value
+ * is therefore the realistic deployment state, not an edge case, and treating it
+ * as "not production" is what shipped the session cookie without `secure` and
+ * kept localhost on the CORS allowlist beside Allow-Credentials: true.
+ *
+ * Note what this does NOT do: it does not pick a side for the operator. Defaulting
+ * to production would break every developer who forgot to export anything;
+ * defaulting to development is the bug itself. The only honest answer to an
+ * ambiguous environment is to stop and say so.
+ *
+ * `npm start` is deliberately left without a NODE_ENV. Baking one in would make
+ * this check unreachable through the very command it exists to protect, and the
+ * project would go back to having an implicit answer — just written down in a
+ * different file. Deployments configure NODE_ENV; `npm run local` / `dev` / `prod`
+ * already set it for the three local cases.
+ *
+ * (The imports above have already run by the time this executes — that is how ES
+ * modules work. Nothing they do at import time acts on the ambiguous value:
+ * middlewares/cors.js builds an allowlist, and it is now fail-closed, so the worst
+ * case is an allowlist that is discarded microseconds later with the process.)
+ */
+try {
+  assertKnownEnvironment();
+  // Same moment, same reason: a malformed COOKIE_SECURE or COOKIE_SAMESITE should
+  // be a refusal to start, not a 500 on the first login of the day.
+  assertCookieConfig();
+} catch (err) {
+  // console, not the logger: the logger's own format is chosen by NODE_ENV, and
+  // this message must survive NODE_ENV being the thing that is wrong.
+  console.error(`FATAL: ${err.message}`);
+  process.exit(1);
+}
 
 // config({ path: './config/' }); //! replaced with regular dotenv library, bug fix
 connectDB()

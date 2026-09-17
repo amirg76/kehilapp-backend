@@ -170,6 +170,136 @@ describe('scripts/approveExistingUsers.js — refusals', () => {
     expect(stderr).toMatch(/"kehilapp"/);
     expect(await unapprovedCount()).toBe(3);
   });
+
+  it('refuses ATLAS_DEMO_DB=kehilapp — the way back in, closed', async () => {
+    // The allowlist's second entry used to be the raw environment variable, so
+    // this exact invocation re-admitted the real board to the list of databases
+    // the migration would write to.
+    const { status, stderr } = runScript(['--yes'], {
+      ATLAS_DEMO_DB: 'kehilapp',
+      MONGO_URI: 'mongodb://127.0.0.1:27017/kehilapp',
+    });
+
+    expect(status).not.toBe(0);
+    expect(stderr).toMatch(/ATLAS_DEMO_DB/);
+    expect(await unapprovedCount()).toBe(3);
+  });
+
+  it('refuses an ATLAS_DEMO_DB that is not named as a demo database', async () => {
+    const { status, stderr } = runScript(['--yes'], {
+      ATLAS_DEMO_DB: 'kehilapp-prod',
+      MONGO_URI: 'mongodb://127.0.0.1:27017/kehilapp-prod',
+    });
+
+    expect(status).not.toBe(0);
+    expect(stderr).toMatch(/ATLAS_DEMO_DB/);
+    expect(await unapprovedCount()).toBe(3);
+  });
+});
+
+/**
+ * THE PRODUCTION DOOR.
+ *
+ * This migration exists FOR a real deployment, and a development-only guard did
+ * not protect that deployment — it locked the operator out of the reviewed code
+ * and left them with two worse options: point ATLAS_DEMO_DB at the real database,
+ * or run updateMany by hand in mongosh, without the revocation exclusion this
+ * script is careful about.
+ *
+ * So there is a door, and these tests pin that it is shut by default, that it
+ * takes BOTH flags to write through it, and that opening it does not quietly turn
+ * a dry run into a write.
+ *
+ * (scripts/seedDemo.js has no such door and must never grow one — it deletes
+ * content and has no legitimate production use. The asymmetry is explained in
+ * both files.)
+ */
+describe('scripts/approveExistingUsers.js — the production door', () => {
+  jest.setTimeout(120000);
+
+  const FLAG = '--i-understand-this-is-production';
+
+  it.each(['prod', 'production'])('is SHUT without the flag under NODE_ENV=%p', async (value) => {
+    const { status, stderr } = runScript(['--yes'], { NODE_ENV: value });
+
+    expect(status).not.toBe(0);
+    expect(stderr).toContain(FLAG); // the refusal tells the operator how to proceed
+    expect(await unapprovedCount()).toBe(3);
+  });
+
+  it('OPENS with the flag — and is still a dry run without --yes', async () => {
+    const { status, stdout } = runScript([FLAG], { NODE_ENV: 'prod' });
+
+    expect(status).toBe(0);
+    expect(stdout).toMatch(/PRODUCTION RUN \(NODE_ENV=prod\)/);
+    // It must name the database and the mode BEFORE doing anything.
+    expect(stdout).toMatch(new RegExp(`database: ${DEMO_DB}`));
+    expect(stdout).toMatch(/mode:\s+DRY RUN/);
+    expect(stdout).toMatch(/DRY RUN — nothing was written/);
+
+    // The contract is the database, not the report.
+    expect(await pendingCount()).toBe(2);
+  });
+
+  it('writes only with BOTH the flag and --yes', async () => {
+    const { status, stdout } = runScript([FLAG, '--yes'], { NODE_ENV: 'prod' });
+
+    expect(status).toBe(0);
+    expect(stdout).toMatch(/mode:\s+WRITE/);
+    expect(stdout).toMatch(/after: 0 unapproved of 4/);
+
+    expect(await pendingCount()).toBe(0);
+    // Every safety printout survives the production path.
+    const revoked = await usersCollection.findOne({ email: 'revoked@test.example.com' });
+    expect(revoked.approved).toBe(false);
+    expect(revoked.revokedBy).toBe('revoking-admin-id');
+  });
+
+  it('does not open for an environment that is merely UNRECOGNISED', async () => {
+    // The flag says "this is production". It is not a skeleton key for any
+    // NODE_ENV the project cannot name.
+    const { status, stderr } = runScript([FLAG, '--yes'], { NODE_ENV: 'staging' });
+
+    expect(status).not.toBe(0);
+    expect(stderr).toMatch(/NODE_ENV=staging/);
+    expect(await unapprovedCount()).toBe(3);
+  });
+
+  it('is not needed, and does no harm, in a development environment', async () => {
+    const { status } = runScript([FLAG, '--yes'], { NODE_ENV: 'development' });
+
+    expect(status).toBe(0);
+    expect(await pendingCount()).toBe(0);
+  });
+});
+
+describe('scripts/approveExistingUsers.js — a stale revokedBy is a revocation trail too', () => {
+  jest.setTimeout(120000);
+
+  it('does not approve a document carrying revokedBy without revokedAt', async () => {
+    // The filter used to check revokedAt ALONE, while the $unset it replaced
+    // cleared revokedAt AND revokedBy. Nothing in the schema keeps the pair in
+    // step, so a half-written revocation would have been approved here and kept
+    // its revokedBy — and usersController.js serves that field to the UI, giving
+    // an approved account the admin who revoked it.
+    await usersCollection.insertOne({
+      name: 'Half Revoked',
+      email: 'half-revoked@test.example.com',
+      role: 'member',
+      passwordHash: 'x',
+      emailVerified: true,
+      approved: false,
+      revokedBy: 'revoking-admin-id',
+    });
+
+    const { status } = runScript(['--yes']);
+    expect(status).toBe(0);
+
+    const after = await usersCollection.findOne({ email: 'half-revoked@test.example.com' });
+    expect(after.approved).toBe(false);
+    expect(after.approvedBy).toBeUndefined();
+    expect(after.revokedBy).toBe('revoking-admin-id');
+  });
 });
 
 describe('scripts/approveExistingUsers.js — dry run is the default', () => {

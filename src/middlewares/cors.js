@@ -1,5 +1,5 @@
 import { CSRF_HEADER } from '../config/cookies.js';
-import { isProduction } from '../config/environment.js';
+import { isKnownNonProduction } from '../config/environment.js';
 
 /**
  * CORS with a fixed origin allowlist.
@@ -20,11 +20,18 @@ const parseAllowed = () => {
 
   if (fromEnv.length > 0) return fromEnv;
 
-  // Dev fallback only. Production is expected to set ALLOWED_ORIGINS explicitly.
-  // "Production" is config/environment.js's answer: the string comparison that
-  // used to be here missed `npm run prod` (NODE_ENV=prod), which left both
-  // localhost origins on the allowlist alongside Allow-Credentials: true.
-  return isProduction() ? [] : ['http://localhost:5173', 'http://localhost:3000'];
+  // Dev fallback only, and gated DEFAULT-DENY. The question asked here is not
+  // "is this production" (isProduction(), which answers false for 'staging', for
+  // a typo and for an unset NODE_ENV — and every one of those false answers put
+  // localhost back on the allowlist next to Allow-Credentials: true). It is "is
+  // this PROVABLY development" — the safe list decides, exactly as it does in the
+  // two destructive scripts and in config/cookies.js.
+  //
+  // src/index.js already refuses to boot on an unrecognised NODE_ENV, so a
+  // running server can never reach the ambiguous case. This module is also
+  // imported directly by tests, which do not pass that check, so it does not
+  // lean on it.
+  return isKnownNonProduction() ? ['http://localhost:5173', 'http://localhost:3000'] : [];
 };
 
 const ALLOWED_ORIGINS = parseAllowed();

@@ -126,8 +126,13 @@ describe('scripts/seedDemo.js refuses anything that is not a demo target', () =>
     expect(atlasDb).not.toBeNull();
     expect(allowList[1]).toContain(`'${atlasDb[1]}'`);
 
-    // And the override those scripts honour is honoured here too.
-    expect(allowList[1]).toContain('process.env.ATLAS_DEMO_DB');
+    // And the override those scripts honour is honoured here too — but through
+    // the validator, never as a raw environment value. `process.env.ATLAS_DEMO_DB`
+    // spliced straight into this array is what made the allowlist writable from
+    // the environment; the behavioural tests below are what actually prove the
+    // validator works, and this line only stops the raw form coming back.
+    expect(allowList[1]).toContain('atlasDemoDatabase()');
+    expect(allowList[1]).not.toContain('process.env.ATLAS_DEMO_DB');
 
     // ...and the application database is NOT on it. `kehilapp` was, which made
     // the guard permit the one database it exists to protect. Both stack scripts
@@ -141,6 +146,95 @@ describe('scripts/seedDemo.js refuses anything that is not a demo target', () =>
     const migrationAllowList = readScript('approveExistingUsers.js').match(/const DEMO_DATABASES = \[(.*?)\]/s);
     expect(migrationAllowList).not.toBeNull();
     expect(migrationAllowList[1]).toEqual(allowList[1]);
+  });
+});
+
+/**
+ * ATLAS_DEMO_DB was the way back in.
+ *
+ * The allowlist's second entry was `process.env.ATLAS_DEMO_DB`, accepted
+ * unchecked — so the environment could write to the allowlist, and
+ *
+ *     ATLAS_DEMO_DB=kehilapp NODE_ENV=development node scripts/seedDemo.js
+ *
+ * put the real board back among the databases this script may wipe. The comment
+ * above the list said only two named databases were permitted; at runtime that
+ * was untrue.
+ *
+ * These are BEHAVIOURAL tests on purpose. The existing check in this file reads
+ * the allowlist literal off disk, which is exactly why this slipped through: the
+ * literal looked correct, and its meaning at runtime did not.
+ */
+describe('scripts/seedDemo.js validates ATLAS_DEMO_DB instead of trusting it', () => {
+  jest.setTimeout(120000);
+
+  const REAL_BOARD_URI = 'mongodb://127.0.0.1:27017/kehilapp';
+
+  it('refuses ATLAS_DEMO_DB=kehilapp — the exact way back in', () => {
+    const { status, stderr, stdout } = runSeed({
+      NODE_ENV: 'development',
+      ATLAS_DEMO_DB: 'kehilapp',
+      MONGO_URI: REAL_BOARD_URI,
+    });
+
+    expect(status).not.toBe(0);
+    expect(stderr).toMatch(/ATLAS_DEMO_DB/);
+    expect(stdout).not.toMatch(/connected/);
+  });
+
+  it.each(['kehilapp', 'kehilapp-prod', 'production', 'admin', 'kehilapp_backup', 'demo', 'kehilapp_demo_old'])(
+    'refuses the non-demo name %p',
+    (name) => {
+      // A blocklist of 'kehilapp' would have let most of these through. The rule
+      // is a required `_demo` SUFFIX, so the set of acceptable names is the set
+      // somebody has deliberately labelled as disposable.
+      const { status, stderr, stdout } = runSeed({
+        NODE_ENV: 'development',
+        ATLAS_DEMO_DB: name,
+        MONGO_URI: `mongodb://127.0.0.1:27017/${name}`,
+      });
+
+      expect(status).not.toBe(0);
+      expect(stderr).toMatch(/ATLAS_DEMO_DB/);
+      expect(stdout).not.toMatch(/connected/);
+    },
+  );
+
+  it('refuses a padded value rather than trimming its way to something dangerous', () => {
+    const { status, stderr } = runSeed({
+      NODE_ENV: 'development',
+      ATLAS_DEMO_DB: '  kehilapp  ',
+      MONGO_URI: REAL_BOARD_URI,
+    });
+
+    expect(status).not.toBe(0);
+    expect(stderr).toMatch(/ATLAS_DEMO_DB/);
+  });
+
+  it('refuses before it decides anything else — even the NODE_ENV question', () => {
+    // The validation runs at module load, so a hostile value is refused whatever
+    // else is wrong with the invocation.
+    const { status, stderr } = runSeed({
+      NODE_ENV: 'prod',
+      ATLAS_DEMO_DB: 'kehilapp',
+      MONGO_URI: REAL_BOARD_URI,
+    });
+
+    expect(status).not.toBe(0);
+    expect(stderr).toMatch(/ATLAS_DEMO_DB/);
+  });
+
+  it('still accepts a legitimately named Atlas demo database', () => {
+    // It must get PAST the allowlist: the only thing that may stop this run is
+    // the absence of a database at that address, which is a connection failure,
+    // not a refusal.
+    const { stderr } = runSeed({
+      NODE_ENV: 'development',
+      ATLAS_DEMO_DB: 'kehilapp_atlas_demo',
+      MONGO_URI: 'mongodb://127.0.0.1:1/kehilapp_atlas_demo?serverSelectionTimeoutMS=500',
+    });
+
+    expect(stderr).not.toMatch(/refusing/);
   });
 });
 
