@@ -174,19 +174,22 @@ describe('scripts/seedDemo.js generates its passwords instead of carrying them',
     expect(a['admin@demo.example.com'].password).not.toBe(a['member@demo.example.com'].password);
   });
 
-  it('uses the password the environment provides, when it provides one', () => {
-    const chosen = `env-chosen-${Date.now()}-abcdefgh`;
-    const { status, stdout, stderr } = runSeedAllowingOneConnectionFlake({ DEMO_PASSWORD: chosen });
-
-    expectCleanExit({ status, stderr });
-
-    const creds = credentialsFrom(stdout);
-    expect(creds['admin@demo.example.com'].password).toBe(chosen);
-    expect(creds['member@demo.example.com'].password).toBe(chosen);
-    expect(creds['admin@demo.example.com'].source).toBe('from env');
-  });
-
-  it('lets the per-role variables override the shared one', () => {
+  /**
+   * One seed run, not two.
+   *
+   * This used to be two tests: one passing only DEMO_PASSWORD, one passing it
+   * alongside DEMO_ADMIN_PASSWORD. A single run with both set proves the same
+   * two things at once -- the shared variable reaches the account that has no
+   * override, and the per-role variable wins for the account that does.
+   *
+   * The reason to merge them is not tidiness. Each test spawns the real seed
+   * against the in-memory database this file starts, and on a CI runner that
+   * database stopped answering by the third spawn: the first attempt timed out
+   * opening a connection and the retry could not select a server at all, after
+   * waiting a full minute. Dropping a spawn removes the load that killed it,
+   * and costs no coverage.
+   */
+  it('takes both passwords from the environment, with the per-role one winning', () => {
     const shared = `shared-${Date.now()}-aaaaaaaa`;
     const adminOnly = `admin-${Date.now()}-bbbbbbbb`;
     const { status, stdout, stderr } = runSeedAllowingOneConnectionFlake({
@@ -196,8 +199,13 @@ describe('scripts/seedDemo.js generates its passwords instead of carrying them',
 
     expectCleanExit({ status, stderr });
     const creds = credentialsFrom(stdout);
+    // The account with its own variable gets that one...
     expect(creds['admin@demo.example.com'].password).toBe(adminOnly);
+    // ...and the account without one falls back to the shared variable.
     expect(creds['member@demo.example.com'].password).toBe(shared);
+    // Both are reported as coming from the environment, not generated.
+    expect(creds['admin@demo.example.com'].source).toBe('from env');
+    expect(creds['member@demo.example.com'].source).toBe('from env');
   });
 });
 
