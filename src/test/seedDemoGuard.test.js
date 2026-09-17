@@ -142,10 +142,25 @@ describe('scripts/seedDemo.js refuses anything that is not a demo target', () =>
     expect(liveDb[1]).not.toBe('kehilapp');
     expect(atlasDb[1]).not.toBe('kehilapp');
 
-    // The same allowlist lives in the migration; the two must not drift apart.
-    const migrationAllowList = readScript('approveExistingUsers.js').match(/const DEMO_DATABASES = \[(.*?)\]/s);
-    expect(migrationAllowList).not.toBeNull();
-    expect(migrationAllowList[1]).toEqual(allowList[1]);
+    // The maintenance scripts used to carry a COPY of this list. They no longer
+    // do: they call demoDatabases() from scripts/lib/demoDatabase.js, so the rule
+    // is enforced from one place. Two things still have to be checked here.
+    //
+    // First, that the shared module starts from the same database name this
+    // allowlist does — a rename in one and not the other is exactly the drift the
+    // original version of this check existed to catch.
+    const sharedDefault = readScript(path.join('lib', 'demoDatabase.js')).match(/DEFAULT_DEMO_DATABASE = '([^']+)'/);
+    expect(sharedDefault).not.toBeNull();
+    expect(allowList[1]).toContain(`'${sharedDefault[1]}'`);
+    expect(sharedDefault[1]).not.toBe('kehilapp');
+
+    // Second, that neither script has quietly grown its own literal list again.
+    // A private copy is how the two drifted in the first place.
+    ['approveExistingUsers.js', 'removeUserByEmail.js'].forEach((name) => {
+      const source = readScript(name);
+      expect(source).toMatch(/demoDatabases\(\{/);
+      expect(source).not.toMatch(/const DEMO_DATABASES = \[/);
+    });
   });
 });
 

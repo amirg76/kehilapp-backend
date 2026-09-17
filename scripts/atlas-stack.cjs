@@ -12,35 +12,30 @@
  *   node scripts/atlas-stack.cjs           # seed + start
  *   node scripts/atlas-stack.cjs --no-seed # start only, keep existing data
  */
-const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+
+// readAtlasUri/withDatabase used to live here. They now live in scripts/lib so
+// the maintenance scripts can resolve Atlas the same way instead of having the
+// connection string handed to them on a command line. See that file for why it
+// is CommonJS and why it throws rather than exiting.
+const { readAtlasUri, withDatabase } = require('./lib/atlasEnv.cjs');
 
 const DEMO_DB = process.env.ATLAS_DEMO_DB || 'kehilapp_demo';
 const PORT = process.env.PORT || 5001;
 
-const readAtlasUri = () => {
-  const envPath = path.join(__dirname, '..', '.env.atlas');
-  if (!fs.existsSync(envPath)) {
-    console.error('[atlas-stack] .env.atlas not found. Expected MONGO_ATLAS_URI there.');
-    process.exit(1);
+/** Unchanged behaviour: for THIS script a missing env file is simply fatal. */
+const resolveUri = () => {
+  try {
+    return withDatabase(readAtlasUri(), DEMO_DB);
+  } catch (err) {
+    // err.message names the file and the variable — never the URI.
+    console.error(`[atlas-stack] ${err.message}`);
+    return process.exit(1);
   }
-  const m = fs.readFileSync(envPath, 'utf8').match(/MONGO_ATLAS_URI\s*=\s*(.+)/);
-  if (!m) {
-    console.error('[atlas-stack] MONGO_ATLAS_URI missing from .env.atlas');
-    process.exit(1);
-  }
-  return m[1].trim().replace(/^["']|["']$/g, '');
 };
 
-/** Force a specific database into the SRV URI (…mongodb.net/<db>?…). */
-const withDatabase = (uri, dbName) => {
-  const [base, query = ''] = uri.split('?');
-  const host = base.replace(/\/+$/, '');
-  return `${host}/${dbName}${query ? `?${query}` : ''}`;
-};
-
-const uri = withDatabase(readAtlasUri(), DEMO_DB);
+const uri = resolveUri();
 
 const env = {
   ...process.env,
