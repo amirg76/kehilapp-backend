@@ -1,5 +1,6 @@
 import { applyErrorHandlingMiddleware } from '../../../errors/utils/dbErrorHandling.js';
 import mongoose, { Schema } from 'mongoose';
+import { messageConstants } from '../../../config/validationConstants.js';
 
 const messageSchema = new Schema(
   {
@@ -8,7 +9,9 @@ const messageSchema = new Schema(
     // with no author can no longer be written.
     senderId: { type: String, required: true },
     title: { type: String, required: true },
-    text: { type: String },
+    // Joi caps the body on the HTTP route; this caps it on every other write
+    // path — Message.create from a script, the seed bulkWrite, a future job.
+    text: { type: String, maxlength: messageConstants.textMaxLength },
     // Content tier. 'public' is readable by anyone (the showcase posture);
     // 'members' is withheld from anonymous callers entirely — never listed and
     // never revealed by direct id. Default 'public' so existing documents and any

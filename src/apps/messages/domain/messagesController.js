@@ -17,6 +17,33 @@ import {
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
 
+/** The 403 used for a tier the caller may not ask for. */
+const forbiddenError = () =>
+  new AppError(
+    errorManagement.commonErrors.authorizationError.message,
+    errorManagement.commonErrors.authorizationError.code,
+    true,
+  );
+
+/**
+ * True when a non-admin explicitly asked for a tier they are not allowed to set.
+ *
+ * Silently normalising the request was the old behaviour, and it lied: a resident
+ * using a non-browser client got a 200 while their "members only" message was
+ * stored world-readable. Silence is only acceptable when the field was never
+ * sent — which is the case for the resident app, whose forms never send it.
+ *
+ * On create an explicit 'public' passes: it is what the caller would get anyway.
+ * On update ANY explicit value is refused, because honouring 'public' would
+ * downgrade a members-only message the caller may not publish.
+ */
+const isForbiddenVisibilityRequest = (req, { onUpdate = false } = {}) => {
+  if (req.role === 'admin' || req.body.visibility === undefined) {
+    return false;
+  }
+  return onUpdate || req.body.visibility === 'members';
+};
+
 /**
  * Decides which content tier a write may land in.
  *
@@ -25,9 +52,9 @@ import errorManagement from '../../../errors/utils/errorManagement.js';
  * (see the ownership comment there), so the decision belongs here, alongside the
  * existing isAdmin check in updateMessage.
  *
- * A non-admin asking for 'members' is not an error: the resident UI never offers
- * the choice, so the request is quietly normalised — 'public' on create, and no
- * visibility change at all on update.
+ * Callers run isForbiddenVisibilityRequest first, so by the time this runs a
+ * non-admin has either omitted the field or sent a value that resolves to what
+ * they would have got anyway — 'public' on create, no change at all on update.
  */
 const resolveVisibility = (req, { onUpdate = false } = {}) => {
   if (req.role === 'admin' && (req.body.visibility === 'members' || req.body.visibility === 'public')) {
@@ -103,7 +130,13 @@ export const getMessageById = async (req, res, next) => {
 };
 
 // create a new message
-export const createMessage = async (req, res) => {
+export const createMessage = async (req, res, next) => {
+  // Refused before the attachment is uploaded: a rejected write must not leave
+  // an orphan object in the bucket.
+  if (isForbiddenVisibilityRequest(req)) {
+    return next(forbiddenError());
+  }
+
   const { categoryId, title, text } = req.body;
   // Attribution comes from the verified token — never from the body, where any
   // caller could claim to be anyone. This closes the old TODO in the repository.
@@ -140,6 +173,10 @@ export const createMessage = async (req, res) => {
 
 // update a message, and replace an existing file
 export const updateMessage = async (req, res, next) => {
+  if (isForbiddenVisibilityRequest(req, { onUpdate: true })) {
+    return next(forbiddenError());
+  }
+
   const { id } = req.params;
   const { categoryId, title, text } = req.body;
   const file = req.file;

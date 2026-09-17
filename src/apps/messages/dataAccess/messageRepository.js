@@ -117,7 +117,10 @@ export const updateMessageInDb = async (id, fields, { requesterId, isAdmin } = {
     ...(fields.attachmentType !== undefined && { attachmentType: fields.attachmentType }),
   };
 
-  return await MessageModel.findOneAndUpdate(filter, update, { new: true });
+  // runValidators keeps the schema honest on the update path too. Without it
+  // findOneAndUpdate skips validation entirely, so an out-of-range body length
+  // or an unknown visibility value would be written straight to the collection.
+  return await MessageModel.findOneAndUpdate(filter, update, { new: true, runValidators: true });
 };
 
 export const deleteMessageInDb = async (id) => {
