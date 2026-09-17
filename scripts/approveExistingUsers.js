@@ -10,14 +10,21 @@
  * gate starts closed only for people who arrive after it.
  *
  * SAFETY, same shape as scripts/seedDemo.js:
- *   - refuses when NODE_ENV === 'production';
+ *   - refuses unless NODE_ENV names a KNOWN development environment;
  *   - refuses when the target database is not one of the demo databases;
  *   - DRY RUN by default. It reports exactly what it would change and exits 0
  *     without writing. Pass --yes to actually write.
- *   - only touches documents where `approved` is missing or false. An account
- *     that is already approved is never rewritten, so re-running is a no-op.
+ *   - only touches documents that were never given an approval decision. An
+ *     account an admin already decided about — approved, or DELIBERATELY
+ *     REVOKED — is never rewritten.
  *   - logs the count before and after, from the database, not from the update
  *     result — the point is to see the state, not to be told about it.
+ *
+ * RE-RUNNING. A second run changes nothing that the first run left behind, and
+ * it never re-admits an account revoked in between. It is NOT a no-op in the
+ * absolute sense: an account created between the two runs and still awaiting a
+ * decision would be admitted by the second one. Run this once, at the deploy
+ * that introduces `approved`, and not as a habit.
  *
  *   node scripts/approveExistingUsers.js          # dry run, changes nothing
  *   node scripts/approveExistingUsers.js --yes    # writes
@@ -25,10 +32,12 @@
 import mongoose from 'mongoose';
 
 import { getMongoUri } from '../src/config/env.js';
+import { isKnownNonProduction, nodeEnvName } from '../src/config/environment.js';
 import User from '../src/apps/users/dataAccess/userModel.js';
 
-/** Kept in step with scripts/seedDemo.js — see the rationale there. */
-const DEMO_DATABASES = ['kehilapp', 'kehilapp_demo', process.env.ATLAS_DEMO_DB].filter(Boolean);
+/** Kept in step with scripts/seedDemo.js — see the rationale there. `kehilapp`, the
+ *  real application database, is deliberately absent. */
+const DEMO_DATABASES = ['kehilapp_demo', process.env.ATLAS_DEMO_DB].filter(Boolean);
 
 /**
  * The database a Mongo connection string resolves to, or '' when it names none.
@@ -51,9 +60,11 @@ const databaseNameOf = (uri) => {
 
 /** Exits non-zero unless this is demonstrably a demo target. */
 const refuseNonDemoTarget = () => {
-  if (process.env.NODE_ENV === 'production') {
+  // DEFAULT-DENY — see the identical guard in scripts/seedDemo.js for why the
+  // safe list is the one that decides.
+  if (!isKnownNonProduction()) {
     console.error(
-      'approveExistingUsers: refusing to run with NODE_ENV=production — admitting every existing account to the community is a decision for a human, not a migration.',
+      `approveExistingUsers: refusing to run with NODE_ENV=${nodeEnvName()} — admitting every existing account to the community is a decision for a human, not a migration. Run it only with NODE_ENV set to one of: local, dev, development, test.`,
     );
     process.exit(1);
   }
@@ -68,9 +79,32 @@ const refuseNonDemoTarget = () => {
   }
 };
 
-// Missing OR false. `{ approved: false }` alone would skip every document written
-// before the field existed, which is precisely the set this migration is for.
-const PENDING_FILTER = { $or: [{ approved: { $exists: false } }, { approved: false }] };
+/**
+ * The accounts this migration is for: never given an approval decision at all.
+ *
+ * Two conditions, and both are load-bearing.
+ *
+ * `approved` missing OR false — `{ approved: false }` alone would skip every
+ * document written before the field existed, which is precisely the set this
+ * migration is for.
+ *
+ * AND no revocation trail. `approved: false` is true of two completely different
+ * people: someone who predates the field, and someone an admin deliberately
+ * REVOKED. Admitting the second is not a migration, it is undoing a human
+ * decision — and the `$unset` this script performs would have destroyed the
+ * evidence that the decision was ever made.
+ *
+ * `revokedAt` is the right signal, per setUserApprovalInDb in
+ * apps/users/dataAccess/userRepository.js: revoking sets revokedAt/revokedBy and
+ * unsets approvedAt/approvedBy, approving does the exact reverse. So the trail is
+ * present on precisely the accounts whose LAST decision was a revocation, and a
+ * revoked account that is later re-approved loses it again. There is no such
+ * thing as a revocation that predates the trail: `git log -S revokedAt` shows the
+ * revoke capability and these two fields arriving in the same commit.
+ */
+const PENDING_FILTER = {
+  $and: [{ $or: [{ approved: { $exists: false } }, { approved: false }] }, { revokedAt: { $exists: false } }],
+};
 
 const run = async () => {
   // Before anything opens a connection: a refusal must cost nothing.
@@ -97,11 +131,14 @@ const run = async () => {
     return;
   }
 
+  // No $unset of revokedAt/revokedBy. The repository clears them when an ADMIN
+  // approves, because that admin has just overruled the revocation. This script
+  // overrules nobody — PENDING_FILTER excludes every account that carries a
+  // revocation trail, so there is none here to clear, and reaching for $unset
+  // anyway would only mean quietly erasing an audit record if the filter ever
+  // regressed.
   const result = await User.updateMany(PENDING_FILTER, {
     $set: { approved: true, approvedAt: new Date(), approvedBy: 'migration:approveExistingUsers' },
-    // Keep the two audit states coherent, exactly as the repository does: an
-    // account carrying a revocation trail must not also read as approved.
-    $unset: { revokedAt: '', revokedBy: '' },
   });
   console.log(`modified: ${result.modifiedCount}`);
 

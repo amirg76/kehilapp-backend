@@ -18,6 +18,7 @@ import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 
 import { getMongoUri } from '../src/config/env.js';
+import { isKnownNonProduction, nodeEnvName } from '../src/config/environment.js';
 import User from '../src/apps/users/dataAccess/userModel.js';
 import Category from '../src/apps/categories/dataAccess/categoryModel.js';
 import Message from '../src/apps/messages/dataAccess/messageModel.js';
@@ -48,8 +49,15 @@ const passwordFor = (roleVar) => process.env[roleVar] || process.env.DEMO_PASSWO
 /**
  * The databases this script is allowed to seed.
  *
- *   kehilapp       — scripts/live-stack.cjs: mongod.getUri('kehilapp')
- *   kehilapp_demo  — scripts/atlas-stack.cjs: ATLAS_DEMO_DB || 'kehilapp_demo'
+ *   kehilapp_demo  — scripts/live-stack.cjs: mongod.getUri('kehilapp_demo')
+ *                    scripts/atlas-stack.cjs: ATLAS_DEMO_DB || 'kehilapp_demo'
+ *
+ * `kehilapp` USED TO BE ON THIS LIST AND MUST NEVER RETURN. That is the name of
+ * the ORDINARY APPLICATION DATABASE — docs/05-running-locally.md hands it to
+ * every developer as `mongodb://127.0.0.1:27017/kehilapp`. Allowing it meant the
+ * allowlist protecting the real board contained the real board: one
+ * `node scripts/seedDemo.js` against a normal local .env deleted every category
+ * and message in it. The demo databases are the two named above and nothing else.
  *
  * The database NAME is the right discriminator here: both stack scripts pin one
  * deliberately, and the real deployment reaches Mongo through a MONGO_URI that
@@ -57,7 +65,7 @@ const passwordFor = (roleVar) => process.env[roleVar] || process.env.DEMO_PASSWO
  * Atlas demo shares its cluster with non-demo databases, which is exactly why
  * atlas-stack.cjs forces a dedicated database in the first place.
  */
-const DEMO_DATABASES = ['kehilapp', 'kehilapp_demo', process.env.ATLAS_DEMO_DB].filter(Boolean);
+const DEMO_DATABASES = ['kehilapp_demo', process.env.ATLAS_DEMO_DB].filter(Boolean);
 
 /**
  * The database a Mongo connection string resolves to, or '' when it names none.
@@ -85,12 +93,22 @@ const refuseNonDemoTarget = () => {
   // them with invented content, then creates accounts that belong to nobody. None
   // of that is recoverable by re-running anything. (It is no longer about a
   // published password — there is none in this file any more.)
-  if (process.env.NODE_ENV === 'production') {
+  // DEFAULT-DENY, and not `isProduction()`. This script must run only where the
+  // environment is a KNOWN development one. `NODE_ENV === 'production'` was
+  // false under `npm run prod`, and it would be just as false under 'staging' or
+  // a typo — a guard that only recognises one dangerous spelling is silent
+  // everywhere else. So the list that matters is the SAFE one.
+  if (!isKnownNonProduction()) {
     console.error(
-      'seedDemo: refusing to run with NODE_ENV=production — this script deletes the categories and messages it finds and replaces them with invented demo content.',
+      `seedDemo: refusing to run with NODE_ENV=${nodeEnvName()} — this script deletes the categories and messages it finds and replaces them with invented demo content. Run it only with NODE_ENV set to one of: local, dev, development, test.`,
     );
     process.exit(1);
   }
+
+  // Deliberately NOT gated on a remote host. The Atlas demo IS remote, and the
+  // database-name allowlist below is the discriminator that actually separates a
+  // demo from a real board — adding a "are you sure, it is not localhost" flag
+  // would fire on the one remote target that is legitimate and on nothing else.
 
   // Never printed: the URI itself, which carries credentials. Only the database
   // name, which atlas-stack.cjs already prints.

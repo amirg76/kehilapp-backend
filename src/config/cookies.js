@@ -17,7 +17,14 @@
  *   COOKIE_SAMESITE = strict | lax | none   (default: lax)
  *   COOKIE_SECURE   = true | false          (default: true in production)
  * SameSite=none is only valid together with Secure, so it forces Secure on.
+ *
+ * "In production" is config/environment.js's answer, not a string comparison
+ * here. This line used to read `NODE_ENV === 'production'`, which is false under
+ * `npm run prod` — so the one command that deploys this shipped the session
+ * cookie WITHOUT Secure, over a deployment that is meant to be HTTPS.
  */
+import { isProduction } from './environment.js';
+
 const TWELVE_HOURS = 12 * 60 * 60 * 1000;
 
 const sameSite = () => (process.env.COOKIE_SAMESITE || 'lax').toLowerCase();
@@ -25,7 +32,7 @@ const sameSite = () => (process.env.COOKIE_SAMESITE || 'lax').toLowerCase();
 const secure = () => {
   if (sameSite() === 'none') return true; // browsers reject SameSite=None without Secure
   if (process.env.COOKIE_SECURE) return process.env.COOKIE_SECURE === 'true';
-  return process.env.NODE_ENV === 'production';
+  return isProduction();
 };
 
 export const AUTH_COOKIE = 'token';

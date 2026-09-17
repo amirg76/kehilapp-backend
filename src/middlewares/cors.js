@@ -1,4 +1,5 @@
 import { CSRF_HEADER } from '../config/cookies.js';
+import { isProduction } from '../config/environment.js';
 
 /**
  * CORS with a fixed origin allowlist.
@@ -20,7 +21,10 @@ const parseAllowed = () => {
   if (fromEnv.length > 0) return fromEnv;
 
   // Dev fallback only. Production is expected to set ALLOWED_ORIGINS explicitly.
-  return process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173', 'http://localhost:3000'];
+  // "Production" is config/environment.js's answer: the string comparison that
+  // used to be here missed `npm run prod` (NODE_ENV=prod), which left both
+  // localhost origins on the allowlist alongside Allow-Credentials: true.
+  return isProduction() ? [] : ['http://localhost:5173', 'http://localhost:3000'];
 };
 
 const ALLOWED_ORIGINS = parseAllowed();

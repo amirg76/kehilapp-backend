@@ -13,7 +13,11 @@ const { spawn } = require('child_process');
 
 (async () => {
   const mongod = await MongoMemoryServer.create();
-  const uri = mongod.getUri('kehilapp');
+  // `kehilapp_demo`, not `kehilapp`. This throwaway server holds demo data only,
+  // and `kehilapp` is the name of the REAL application database
+  // (docs/05-running-locally.md) — scripts/seedDemo.js no longer accepts it, on
+  // purpose. Rename this and the seed refuses to run; that is the guard working.
+  const uri = mongod.getUri('kehilapp_demo');
   const PORT = process.env.PORT || 5001;
 
   const env = {
