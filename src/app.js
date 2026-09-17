@@ -9,7 +9,7 @@ import errorDelegatorMiddleware from './errors/errorDelegatorMiddleware.js';
 import AppError from './errors/AppError.js';
 import corsMiddleware from './middlewares/cors.js';
 import csrfProtection from './middlewares/csrf.js';
-import logger from './services/logger.js';
+import logger, { forLog } from './services/logger.js';
 import { apiLimiter, loginLimiter, registerLimiter } from './middlewares/rateLimit.js';
 
 //import routes
@@ -50,7 +50,7 @@ app.use(csrfProtection);
 // Request log. Silent under test so suite output stays readable.
 if (process.env.NODE_ENV !== 'test') {
   app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.path}`);
+    logger.info(`${req.method} ${forLog(req.path)}`);
     next();
   });
 }
