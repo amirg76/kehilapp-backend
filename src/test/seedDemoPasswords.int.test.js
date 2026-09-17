@@ -75,6 +75,20 @@ const runSeed = (env = {}) => {
 };
 
 /**
+ * Asserts the seed exited cleanly, and puts its stderr in the failure message
+ * when it did not. A test that reports only "expected 0, received 1" sends the
+ * reader to a CI log to find out what the process actually said -- and if the
+ * failure only happens in CI, that is the one place they cannot reproduce it.
+ */
+const expectCleanExit = ({ status, stderr }) => {
+  if (status !== 0) {
+    throw new Error(`seed exited ${status}
+--- stderr ---
+${stderr || '(empty)'}`);
+  }
+};
+
+/**
  * The credentials the seed printed, as { email: password }.
  *
  * Parsed from the run's own stdout — the seed prints one line per account:
@@ -122,9 +136,9 @@ describe('scripts/seedDemo.js generates its passwords instead of carrying them',
 
   it('uses the password the environment provides, when it provides one', () => {
     const chosen = `env-chosen-${Date.now()}-abcdefgh`;
-    const { status, stdout } = runSeed({ DEMO_PASSWORD: chosen });
+    const { status, stdout, stderr } = runSeed({ DEMO_PASSWORD: chosen });
 
-    expect(status).toBe(0);
+    expectCleanExit({ status, stderr });
 
     const creds = credentialsFrom(stdout);
     expect(creds['admin@demo.example.com'].password).toBe(chosen);
@@ -135,9 +149,9 @@ describe('scripts/seedDemo.js generates its passwords instead of carrying them',
   it('lets the per-role variables override the shared one', () => {
     const shared = `shared-${Date.now()}-aaaaaaaa`;
     const adminOnly = `admin-${Date.now()}-bbbbbbbb`;
-    const { status, stdout } = runSeed({ DEMO_PASSWORD: shared, DEMO_ADMIN_PASSWORD: adminOnly });
+    const { status, stdout, stderr } = runSeed({ DEMO_PASSWORD: shared, DEMO_ADMIN_PASSWORD: adminOnly });
 
-    expect(status).toBe(0);
+    expectCleanExit({ status, stderr });
     const creds = credentialsFrom(stdout);
     expect(creds['admin@demo.example.com'].password).toBe(adminOnly);
     expect(creds['member@demo.example.com'].password).toBe(shared);
