@@ -229,7 +229,18 @@ const run = async () => {
   // Before anything opens a connection: a refusal must cost nothing.
   refuseNonDemoTarget();
 
-  await mongoose.connect(getMongoUri());
+  // The driver's defaults assume a database that is already up and nearby. This
+  // script runs against two targets that are neither: an in-memory server that
+  // is still starting, and a remote Atlas demo. On a loaded CI runner the
+  // in-memory case lost the race and the seed exited with a connection timeout
+  // -- which reads as a broken seed rather than a slow machine. Waiting longer
+  // costs nothing when the database is ready, and is the difference between a
+  // pass and a flake when it is not.
+  await mongoose.connect(getMongoUri(), {
+    serverSelectionTimeoutMS: 60000,
+    connectTimeoutMS: 60000,
+    socketTimeoutMS: 60000,
+  });
   console.log('connected');
 
   await User.deleteMany({ email: { $in: users.map((u) => u.email) } });

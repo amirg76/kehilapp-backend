@@ -218,7 +218,15 @@ const run = async () => {
     console.log('──────────────────────────────────────────────────────────────');
   }
 
-  await mongoose.connect(getMongoUri());
+  // Same reasoning as the seed script: this runs against a starting in-memory
+  // server in tests and a remote Atlas database in the deployment it exists
+  // for. A migration that gives up on a slow connection looks like a migration
+  // that failed, and an operator who sees that will reach for mongosh instead.
+  await mongoose.connect(getMongoUri(), {
+    serverSelectionTimeoutMS: 60000,
+    connectTimeoutMS: 60000,
+    socketTimeoutMS: 60000,
+  });
   console.log(`connected (database: ${databaseNameOf(getMongoUri())})`);
 
   const total = await User.countDocuments();
