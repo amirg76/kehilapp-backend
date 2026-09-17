@@ -20,6 +20,12 @@ beforeAll(async () => {
       // Ubuntu 24.04 image CI now runs. wiredTiger is what a real deployment
       // uses anyway, so the tests exercise the same engine as production.
       storageEngine: 'wiredTiger',
+      // wiredTiger sizes its cache from total system memory, which on a shared
+      // CI runner means it reserves far more than a test database needs and
+      // leaves little for everything else running beside it. Capped at 256 MB:
+      // these suites hold a handful of documents, and the default was enough to
+      // starve a mongod that other processes were still connecting to.
+      args: ['--wiredTigerCacheSizeGB', '0.25'],
     },
   });
   const mongoUri = mongod.getUri();
