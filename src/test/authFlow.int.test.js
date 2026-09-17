@@ -25,9 +25,25 @@ beforeEach(async () => {
   const passwordHash = await bcrypt.hash(PASSWORD, 4); // low cost: this is a test
   // emailVerified: true — login now refuses unverified accounts, and these
   // fixtures exist to exercise the authenticated paths, not the sign-up flow.
+  // approved: true — likewise: both are meant to be admitted members of the
+  // community, not accounts still waiting for an admin (see approval.int.test.js).
   [admin, member] = await User.create([
-    { name: 'Admin Test', email: 'admin@test.example.com', role: 'admin', passwordHash, emailVerified: true },
-    { name: 'Member Test', email: 'member@test.example.com', role: 'member', passwordHash, emailVerified: true },
+    {
+      name: 'Admin Test',
+      email: 'admin@test.example.com',
+      role: 'admin',
+      passwordHash,
+      emailVerified: true,
+      approved: true,
+    },
+    {
+      name: 'Member Test',
+      email: 'member@test.example.com',
+      role: 'member',
+      passwordHash,
+      emailVerified: true,
+      approved: true,
+    },
   ]);
 });
 

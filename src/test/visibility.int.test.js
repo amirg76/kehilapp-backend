@@ -31,6 +31,10 @@ beforeEach(async () => {
     role: 'member',
     passwordHash,
     emailVerified: true,
+    // approved: true — these tests are about the public/members TIERS, and the
+    // signed-in caller here is meant to be a full member of the community.
+    // Approval is a separate gate with its own suite (approval.int.test.js).
+    approved: true,
   });
 
   // senderId is required on the model now: every message has an author.

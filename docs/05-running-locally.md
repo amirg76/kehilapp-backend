@@ -61,14 +61,29 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 node scripts/seedDemo.js
 ```
 
-**מה זה עושה:** ממלא את המסד בתוכן דמה — 2 משתמשים (מנהל וחבר), 4 קטגוריות,
-5 הודעות. **כל התוכן מומצא**; אין בו שום נתון קהילתי אמיתי. הסקריפט מוחק תוכן
+**מה זה עושה:** ממלא את המסד בתוכן דמה — 2 משתמשים (מנהל וחבר), 7 קטגוריות
+והודעות. **כל התוכן מומצא**; אין בו שום נתון קהילתי אמיתי. הסקריפט מוחק תוכן
 קודם לפני שהוא זורע, אז אפשר להריץ שוב בבטחה.
 
-בסוף הוא מדפיס פרטי התחברות לדמו:
+**אין סיסמה כתובה בקוד.** סיסמה שנכתבת בקובץ מתפרסמת יחד עם הריפו — וגם אם
+מוחקים את השורה אחר כך, היא נשארת בהיסטוריה. לכן הסקריפט **מגריל סיסמה חזקה
+לכל חשבון בכל הרצה ומדפיס אותה לטרמינל**:
+
 ```
-sign in with admin@demo.example.com / seed-demo-pw-placeholder
+done. sign in with:
+  admin  admin@demo.example.com   <סיסמה שהוגרלה עכשיו>   (generated for this run)
+  member member@demo.example.com  <סיסמה שהוגרלה עכשיו>   (generated for this run)
 ```
+
+**מה זה נותן:** עדיין פקודה אחת בלי שום הכנה — רק שהסיסמה חיה בטרמינל שלכם
+ולא בגיטהאב. הרצה חוזרת מגרילה סיסמאות חדשות, אז העתיקו אותן מיד.
+
+רוצים סיסמה קבועה שלא משתנה בין הרצות? קבעו אותה בסביבה לפני ההרצה:
+
+```bash
+DEMO_PASSWORD='<בחרו סיסמה>' node scripts/seedDemo.js
+```
+או לכל תפקיד בנפרד — `DEMO_ADMIN_PASSWORD` ו-`DEMO_MEMBER_PASSWORD`.
 
 ### 4. הדלקת השרת
 
@@ -94,13 +109,16 @@ curl http://localhost:5001/healthz
 ```
 צריך להחזיר `{"status":"ok"}`. **זו בדיקת הבריאות** מ-[01 — ארכיטקטורה](01-architecture.md).
 
-התחברות:
+התחברות — **הסיסמה היא זו שהסקריפט הדפיס בשלב 3** (או זו שקבעתם ב-`DEMO_PASSWORD`):
 ```bash
 curl -X POST http://localhost:5001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@demo.example.com","password":"seed-demo-pw-placeholder"}'
+  -d '{"email":"admin@demo.example.com","password":"<הסיסמה מהזריעה>"}'
 ```
 צריך להחזיר טוקן.
+
+אם איבדתם אותה — פשוט הריצו שוב את `node scripts/seedDemo.js`; הוא יגריל וידפיס
+סיסמאות חדשות.
 
 ---
 

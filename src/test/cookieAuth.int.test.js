@@ -20,6 +20,8 @@ beforeEach(async () => {
     role: 'admin',
     // Login refuses unverified accounts; this fixture tests the cookie/CSRF flow.
     emailVerified: true,
+    // An admitted member of the community — approval is gated separately.
+    approved: true,
   });
 });
 

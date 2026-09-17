@@ -58,14 +58,21 @@ const auth = async (req, res, next) => {
       return next(throwUnauthorizedError());
     }
 
-    const { id: userId, role } = decoded;
+    const { id: userId } = decoded;
 
     // The token can outlive the account it names, so confirm the user still exists.
     const user = await getUserFromDb(userId);
     if (!user) return next(throwUnauthorizedError());
 
     req.userId = userId;
-    req.role = role;
+    // Role and approval BOTH come from the document, never from a JWT claim. The
+    // token carries a role claim, but a power that lives only in the token cannot
+    // be taken away: an admin demoted to member in the database kept every admin
+    // power for the remaining 12 hours of their token, which is exactly the window
+    // in which a compromised account has to be contained. The document is already
+    // loaded above, so reading both from it costs nothing.
+    req.role = user.role;
+    req.approved = user.approved === true;
     return next();
   } catch (err) {
     const message = err instanceof Error ? err.message : 'An unknown error occurred';

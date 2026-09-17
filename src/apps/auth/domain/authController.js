@@ -100,7 +100,10 @@ export const login = async (req, res, next) => {
   return res.status(200).json({
     token,
     csrfToken,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    // `approved` rides along so the resident app can show a "waiting for
+    // approval" banner and the admin dashboard can list who is still pending.
+    // It is NOT a token claim: see the comment in middlewares/auth.js.
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, approved: user.approved === true },
   });
 };
 
@@ -129,7 +132,9 @@ export const me = async (req, res, next) => {
   }
 
   return res.status(200).json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    // Read fresh from the document on every call, so an approval granted after
+    // login shows up here without the client signing in again.
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, approved: user.approved === true },
   });
 };
 
@@ -175,6 +180,12 @@ export const register = async (req, res) => {
     email: user.email,
     role: user.role,
     emailVerified: user.emailVerified,
+    // A brand-new account is never approved: verifying the address is a step
+    // towards membership, not membership itself. Read from the DOCUMENT rather
+    // than written as a literal `false`, so register, login and /me all report
+    // the same field from the same source and none of the three can drift if the
+    // schema default or createUserInDb ever changes.
+    approved: user.approved,
   };
   if (!mail.delivered) {
     body.verificationToken = mail.token;

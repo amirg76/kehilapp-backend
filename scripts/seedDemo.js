@@ -15,20 +15,101 @@
  */
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
 import { getMongoUri } from '../src/config/env.js';
 import User from '../src/apps/users/dataAccess/userModel.js';
 import Category from '../src/apps/categories/dataAccess/categoryModel.js';
 import Message from '../src/apps/messages/dataAccess/messageModel.js';
 
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'seed-demo-pw-placeholder';
+/**
+ * NO PASSWORD LITERAL LIVES IN THIS FILE — keep it that way.
+ *
+ * A password written here is published the moment the repository is, and stays
+ * published in the history afterwards whether or not the line is later deleted.
+ * So the demo does not get a password it can leak: each seeded account takes its
+ * password from an environment variable, or, when none is set, from a fresh
+ * random one generated at seed time and printed to stdout for the developer who
+ * just ran it. The demo stays a one-command experience; the secret simply stops
+ * being a constant.
+ *
+ * DEMO_PASSWORD sets one password for every seeded account.
+ * DEMO_ADMIN_PASSWORD / DEMO_MEMBER_PASSWORD override it per role.
+ * Set none of them and the script generates and prints per-account passwords.
+ */
+const randomPassword = () => randomBytes(18).toString('base64url');
 
-// The old admin account (admin@weunity.com / seed-demo-pw-placeholder) is included so the
-// original credentials work in the demo. The others are generic demo logins.
+/**
+ * Resolves the password for one seeded account: the per-role variable, then the
+ * shared one, then a freshly generated one. The caller prints what it got.
+ */
+const passwordFor = (roleVar) => process.env[roleVar] || process.env.DEMO_PASSWORD || randomPassword();
+
+/**
+ * The databases this script is allowed to seed.
+ *
+ *   kehilapp       — scripts/live-stack.cjs: mongod.getUri('kehilapp')
+ *   kehilapp_demo  — scripts/atlas-stack.cjs: ATLAS_DEMO_DB || 'kehilapp_demo'
+ *
+ * The database NAME is the right discriminator here: both stack scripts pin one
+ * deliberately, and the real deployment reaches Mongo through a MONGO_URI that
+ * names a different database. Checking the host instead would be wrong — the
+ * Atlas demo shares its cluster with non-demo databases, which is exactly why
+ * atlas-stack.cjs forces a dedicated database in the first place.
+ */
+const DEMO_DATABASES = ['kehilapp', 'kehilapp_demo', process.env.ATLAS_DEMO_DB].filter(Boolean);
+
+/**
+ * The database a Mongo connection string resolves to, or '' when it names none.
+ * Credentials are stripped before anything is read, so nothing secret can reach
+ * a log line built from this value.
+ */
+const databaseNameOf = (uri) => {
+  const [authority] = String(uri)
+    .replace(/^mongodb(\+srv)?:\/\//i, '')
+    .split('?');
+  const afterCredentials = authority.slice(authority.lastIndexOf('@') + 1);
+  const slash = afterCredentials.indexOf('/');
+  if (slash === -1) return '';
+  try {
+    return decodeURIComponent(afterCredentials.slice(slash + 1));
+  } catch {
+    return afterCredentials.slice(slash + 1);
+  }
+};
+
+/** Exits non-zero unless this is demonstrably a demo target. */
+const refuseNonDemoTarget = () => {
+  // What this guard protects against is a DEMO DATASET LANDING IN A REAL
+  // DATABASE. The script deletes every category and message it finds and replaces
+  // them with invented content, then creates accounts that belong to nobody. None
+  // of that is recoverable by re-running anything. (It is no longer about a
+  // published password — there is none in this file any more.)
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      'seedDemo: refusing to run with NODE_ENV=production — this script deletes the categories and messages it finds and replaces them with invented demo content.',
+    );
+    process.exit(1);
+  }
+
+  // Never printed: the URI itself, which carries credentials. Only the database
+  // name, which atlas-stack.cjs already prints.
+  const dbName = databaseNameOf(getMongoUri());
+  if (!DEMO_DATABASES.includes(dbName)) {
+    console.error(
+      `seedDemo: refusing to seed database "${dbName || '(none named in MONGO_URI)'}" — only the demo databases [${DEMO_DATABASES.join(', ')}] may be seeded. Set ATLAS_DEMO_DB if the demo database is named differently.`,
+    );
+    process.exit(1);
+  }
+};
+
+// Two generic demo logins — one admin so admin work can be demonstrated, one
+// member. The old admin@weunity.com account is gone on purpose: it existed only
+// to carry a password literal, and that literal is what this file no longer has.
+// Passwords are resolved at run time, never written here.
 const users = [
-  { name: 'מנהל דמו', email: 'admin@demo.example.com', role: 'admin', password: DEMO_PASSWORD },
-  { name: 'חבר דמו', email: 'member@demo.example.com', role: 'member', password: DEMO_PASSWORD },
-  { name: 'מנהל (ותיק)', email: 'admin@weunity.com', role: 'admin', password: 'seed-demo-pw-placeholder' },
+  { name: 'מנהל דמו', email: 'admin@demo.example.com', role: 'admin', passwordVar: 'DEMO_ADMIN_PASSWORD' },
+  { name: 'חבר דמו', email: 'member@demo.example.com', role: 'member', passwordVar: 'DEMO_MEMBER_PASSWORD' },
 ];
 
 // `icon` holds the value the frontend CategoryIcon switches on — set to the
@@ -83,20 +164,33 @@ const messages = [
 ];
 
 const run = async () => {
+  // Before anything opens a connection: a refusal must cost nothing.
+  refuseNonDemoTarget();
+
   await mongoose.connect(getMongoUri());
   console.log('connected');
 
   await User.deleteMany({ email: { $in: users.map((u) => u.email) } });
+
+  // Resolved once, here, so the same value is hashed and printed. Held in memory
+  // for the length of this run and never written to the repository.
+  const credentials = users.map((u) => ({ ...u, password: passwordFor(u.passwordVar) }));
+
   // emailVerified: true — seeded accounts must be able to log in immediately;
   // login refuses any account whose email is not yet verified.
+  // approved: true — a demo must open on a working board, not on two accounts
+  // waiting for an admin to admit them to the community.
+  const approvedAt = new Date();
   const createdUsers = await User.create(
     await Promise.all(
-      users.map(async (u) => ({
+      credentials.map(async (u) => ({
         name: u.name,
         email: u.email,
         role: u.role,
         passwordHash: await bcrypt.hash(u.password, 12),
         emailVerified: true,
+        approved: true,
+        approvedAt,
       })),
     ),
   );
@@ -135,7 +229,16 @@ const run = async () => {
   console.log(`messages: ${createdMessages.length} (${publicCount} public, ${createdMessages.length - publicCount} members-only)`);
 
   await mongoose.connection.close();
-  console.log(`\ndone. sign in with ${users[0].email} / ${DEMO_PASSWORD}  (or admin@weunity.com / seed-demo-pw-placeholder)`);
+
+  // Printed, not stored. This is the only place the generated passwords appear,
+  // and only in the terminal of whoever just ran the seed. Re-running the seed
+  // issues new ones. Never send this output anywhere — see the guard above for
+  // why this is only ever a development terminal.
+  console.log('\ndone. sign in with:');
+  credentials.forEach((u) => {
+    const source = process.env[u.passwordVar] || process.env.DEMO_PASSWORD ? 'from env' : 'generated for this run';
+    console.log(`  ${u.role.padEnd(6)} ${u.email}  ${u.password}   (${source})`);
+  });
 };
 
 run().catch(async (err) => {

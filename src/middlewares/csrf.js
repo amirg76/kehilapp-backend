@@ -1,6 +1,6 @@
 import AppError from '../errors/AppError.js';
 import errorManagement from '../errors/utils/errorManagement.js';
-import { CSRF_COOKIE, CSRF_HEADER } from '../config/cookies.js';
+import { AUTH_COOKIE, CSRF_COOKIE, CSRF_HEADER } from '../config/cookies.js';
 
 // Reads (GET/HEAD/OPTIONS) don't change state, so they are exempt. Login is also
 // exempt: the user has no CSRF cookie yet, and it is protected by the credential
@@ -37,11 +37,20 @@ const csrfProtection = (req, res, next) => {
   // automatically on a forged cross-site request. A client that authenticates
   // with an explicit `Authorization: Bearer` header is not exposed — the browser
   // never auto-sends that header cross-site — so header-auth requests skip the
-  // check. This is also what keeps API clients and the Bearer-based test suite
-  // working unchanged.
+  // check. This is what keeps API clients and the Bearer-based test suite working
+  // unchanged.
+  //
+  // The exemption must match how identity is actually resolved. `auth` PREFERS
+  // the auth cookie and only falls back to the header, so a request carrying both
+  // authenticates by COOKIE — the exposed path — while the bare presence of any
+  // Bearer string would have waved it past this check. Preflight stops a foreign
+  // origin, but every origin in the CORS allowlist is not stopped, and
+  // `Authorization` is an allowed request header. So exempt only requests that
+  // genuinely authenticate by Bearer: no auth cookie present.
   const authHeader = req.headers?.authorization;
   const usesBearer = authHeader && authHeader.startsWith('Bearer ');
-  if (usesBearer) {
+  const hasAuthCookie = Boolean(req.cookies?.[AUTH_COOKIE]);
+  if (usesBearer && !hasAuthCookie) {
     return next();
   }
 

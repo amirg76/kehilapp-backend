@@ -32,9 +32,11 @@ let member;
 
 beforeEach(async () => {
   const passwordHash = await bcrypt.hash(PASSWORD, 4); // low cost: this is a test
+  // approved: true — both fixtures stand for admitted members of the community;
+  // the admin-approval gate has its own suite (approval.int.test.js).
   [admin, member] = await User.create([
-    { name: 'Admin Test', email: ADMIN_EMAIL, role: 'admin', passwordHash, emailVerified: true },
-    { name: 'Member Test', email: MEMBER_EMAIL, role: 'member', passwordHash, emailVerified: true },
+    { name: 'Admin Test', email: ADMIN_EMAIL, role: 'admin', passwordHash, emailVerified: true, approved: true },
+    { name: 'Member Test', email: MEMBER_EMAIL, role: 'member', passwordHash, emailVerified: true, approved: true },
   ]);
 });
 

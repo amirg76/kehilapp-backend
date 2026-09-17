@@ -38,6 +38,23 @@ const userSchema = new Schema(
     // When the current verification token stops being accepted. A leaked or
     // forgotten link should not stay usable forever.
     emailVerificationExpires: { type: Date, select: false },
+
+    // Verified is not the same as trusted. Verifying an email proves the caller
+    // controls that address — nothing more. Belonging to the community is a
+    // human admission decision, so an admin approves an account explicitly
+    // before it sees members-only content. Default false: a document written
+    // before this field existed hydrates as unapproved, which is the safe side.
+    approved: { type: Boolean, default: false },
+    approvedAt: { type: Date },
+    approvedBy: { type: String },
+
+    // Withdrawing an admission is a human decision too, and the one that gets
+    // asked about afterwards ("who removed them, and when?"). Revoking used to
+    // only $unset the approval fields, which left the account looking exactly
+    // like one that had never been admitted at all. These two keep the trail.
+    // Cleared again on a re-approval so the two states never both read as true.
+    revokedAt: { type: Date },
+    revokedBy: { type: String },
   },
   { timestamps: true },
 );

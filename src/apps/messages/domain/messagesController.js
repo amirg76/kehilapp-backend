@@ -45,6 +45,21 @@ const isForbiddenVisibilityRequest = (req, { onUpdate = false } = {}) => {
 };
 
 /**
+ * True when the caller may READ the members-only tier.
+ *
+ * Signing in is no longer enough: verifying an email proves the address, not
+ * membership of the community. An admin has to approve the account first, so a
+ * verified-but-unapproved user sees exactly what the public sees.
+ *
+ * The admin bypass is deliberate and explicit: an admin created outside the seed
+ * — or before this field existed — must never be locked out of their own board.
+ *
+ * `req.approved` comes from the user document on every request (see auth.js /
+ * optionalAuth.js), not from a JWT claim, so an approval applies immediately.
+ */
+const canSeeMembersContent = (req) => Boolean(req.userId) && (req.approved || req.role === 'admin');
+
+/**
  * Decides which content tier a write may land in.
  *
  * Publishing to the members-only tier is an admin act. Joi cannot make this call
@@ -66,9 +81,9 @@ const resolveVisibility = (req, { onUpdate = false } = {}) => {
 // get messages filtered by query and categories
 export const getMessages = async (req, res, next) => {
   const { searchTerm, categoryId, page, limit } = req.query;
-  // optionalAuth sets req.userId only for a valid session. A signed-in caller
-  // sees both tiers; an anonymous one sees public content only.
-  const includeMembers = Boolean(req.userId);
+  // optionalAuth sets req.userId only for a valid session. An APPROVED caller
+  // sees both tiers; anonymous and not-yet-approved callers see public only.
+  const includeMembers = canSeeMembersContent(req);
   const {
     items: messages,
     total,
@@ -106,9 +121,10 @@ export const getMessages = async (req, res, next) => {
 // get message by id
 export const getMessageById = async (req, res, next) => {
   const { id } = req.params;
-  // A members-only message requested by an anonymous caller does not match the
-  // query and comes back null → a 404 below, which never reveals its existence.
-  const includeMembers = Boolean(req.userId);
+  // A members-only message requested by a caller who may not see that tier does
+  // not match the query and comes back null → a 404 below, which never reveals
+  // its existence.
+  const includeMembers = canSeeMembersContent(req);
   const message = await getMessageByIdFromDb(id, { includeMembers });
 
   if (!message) {

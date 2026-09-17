@@ -22,5 +22,12 @@ id_rsa
 
 # logs
 /src/logs
+# Any log file, wherever it lands. /src/logs alone covered the directory the app
+# writes to and nothing else — and a log file is exactly where a secret leaks
+# without anyone reviewing the diff.
+*.log
 # Cygwin/MSYS crash dumps — a tool crashed here once and left this behind.
 *.stackdump
+
+# test output
+coverage/

@@ -3,6 +3,7 @@ import express from 'express';
 import auth from '../../../middlewares/auth.js';
 import optionalAuth from '../../../middlewares/optionalAuth.js';
 import requireRole from '../../../middlewares/requireRole.js';
+import requireApproved from '../../../middlewares/requireApproved.js';
 // validation
 import {
   getMessagesValidation,
@@ -36,11 +37,17 @@ const router = express.Router();
 router.get('/', optionalAuth, getMessagesValidation, getMessages);
 router.get('/:id', optionalAuth, getMessageByIdValidation, getMessageById);
 
-// Posting and editing are open to members: these are community messages, not
-// announcements from above. `auth` runs before `upload` on purpose — an
-// anonymous caller must never get as far as writing a file to S3.
-router.post('/', auth, upload.single('file'), createMessageValidation, createMessage);
-router.patch('/:id', auth, upload.single('file'), updateMessageValidation, updateMessage);
+// Posting and editing are open to ADMITTED members: these are community
+// messages, not announcements from above — but a verified email is not
+// membership. `auth` answers "who are you", `requireApproved` answers "are you
+// one of us"; only then does the request reach the uploader.
+//
+// Both guards run before `upload` on purpose: multer consumes the request body,
+// and the controller pushes that file to S3. A caller who is anonymous, or
+// signed in but not yet admitted, must never get as far as buffering a file —
+// let alone leaving an object in the bucket for a write that is then refused.
+router.post('/', auth, requireApproved, upload.single('file'), createMessageValidation, createMessage);
+router.patch('/:id', auth, requireApproved, upload.single('file'), updateMessageValidation, updateMessage);
 
 // Destruction is an admin act. A member deleting other people's messages is not
 // a feature anyone asked for.

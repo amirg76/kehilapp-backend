@@ -54,14 +54,19 @@ const optionalAuth = async (req, res, next) => {
     const decoded = await verifyToken(token);
     if (!decoded) return next(); // present but unusable → anonymous, not 401
 
-    const { id: userId, role } = decoded;
+    const { id: userId } = decoded;
 
     // The token can outlive the account it names; an orphaned token stays anonymous.
     const user = await getUserFromDb(userId);
     if (!user) return next();
 
     req.userId = userId;
-    req.role = role;
+    // Same reasoning as the strict middleware: role and approval are read from the
+    // document rather than from JWT claims, so a demotion or a revocation applies
+    // to the very next request instead of waiting out the token, and an approval
+    // applies without the user logging in again.
+    req.role = user.role;
+    req.approved = user.approved === true;
     return next();
   } catch (err) {
     // A real fault (e.g. the database is down) is not something to swallow into
