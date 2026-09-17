@@ -1,8 +1,9 @@
 import pkg from 'jsonwebtoken';
 import errorManagement from '../errors/utils/errorManagement.js';
 import AppError from '../errors/AppError.js';
-import User from '../apps/users/dataAccess/userModel.js';
+import { getUserFromDb } from '../apps/users/dataAccess/userRepository.js';
 import { getJwtSecret } from '../config/env.js';
+import { AUTH_COOKIE } from '../config/cookies.js';
 
 const { verify } = pkg;
 
@@ -13,52 +14,69 @@ const throwUnauthorizedError = () =>
     true,
   );
 
-const verifyToken = async (token, next) =>
-  new Promise((resolve, reject) => {
-    verify(token, getJwtSecret(), (err, decoded) => {
-      if (err) {
-        next(throwUnauthorizedError());
-        resolve(undefined);
-      } else if (typeof decoded === 'object' && decoded !== null && 'id' in decoded && 'role' in decoded) {
-        resolve(decoded);
-      } else {
-        resolve(undefined);
-      }
+/**
+ * Resolves the token payload, or undefined if the token is unusable.
+ *
+ * It deliberately does NOT touch `next`. The previous version called next() here
+ * on a verify error AND resolved undefined, so the caller called next() a second
+ * time — two responses for one request ("Cannot set headers after they are sent").
+ * Error handling belongs to the caller, once.
+ */
+const verifyToken = async (token) =>
+  new Promise((resolve) => {
+    // Pin the algorithm: without this a token could, in principle, ask to be
+    // verified with a different scheme than the one we sign with.
+    verify(token, getJwtSecret(), { algorithms: ['HS256'] }, (err, decoded) => {
+      if (err) return resolve(undefined);
+
+      const usable = typeof decoded === 'object' && decoded !== null && 'id' in decoded && 'role' in decoded;
+
+      return resolve(usable ? decoded : undefined);
     });
   });
 
 const auth = async (req, res, next) => {
   try {
-    const authHeader = req.headers?.authorization;
+    // Prefer the httpOnly cookie; fall back to a Bearer header so existing
+    // clients and the test suite keep working during the transition.
+    let token = req.cookies?.[AUTH_COOKIE];
 
-    if (!authHeader || !authHeader.startsWith('Bearer')) {
-      return next(throwUnauthorizedError());
+    if (!token) {
+      const authHeader = req.headers?.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return next(throwUnauthorizedError());
+      }
+      const [prefix, headerToken, ...rest] = authHeader.split(' ');
+      if (prefix !== 'Bearer' || !headerToken || rest.length > 0) {
+        return next(throwUnauthorizedError());
+      }
+      token = headerToken;
     }
 
-    const [prefix, token, ...rest] = authHeader.split(' ');
-    if (prefix !== 'Bearer' || !token || rest.length > 0) {
-      return next(throwUnauthorizedError());
-    }
-
-    const decoded = await verifyToken(token, next);
-
+    const decoded = await verifyToken(token);
     if (!decoded) {
       return next(throwUnauthorizedError());
     }
 
-    const { id: userId, role } = decoded;
-    const user = await User.findById(userId);
+    const { id: userId } = decoded;
+
+    // The token can outlive the account it names, so confirm the user still exists.
+    const user = await getUserFromDb(userId);
     if (!user) return next(throwUnauthorizedError());
 
     req.userId = userId;
-    req.role = role;
-    next();
+    // Role and approval BOTH come from the document, never from a JWT claim. The
+    // token carries a role claim, but a power that lives only in the token cannot
+    // be taken away: an admin demoted to member in the database kept every admin
+    // power for the remaining 12 hours of their token, which is exactly the window
+    // in which a compromised account has to be contained. The document is already
+    // loaded above, so reading both from it costs nothing.
+    req.role = user.role;
+    req.approved = user.approved === true;
+    return next();
   } catch (err) {
-    if (err instanceof Error) {
-      next(new AppError(err.message, errorManagement.commonErrors.internalServerError.code, false));
-    } else {
-      next(new AppError('An unknown error occurred', errorManagement.commonErrors.internalServerError.code, false));
-    }
+    const message = err instanceof Error ? err.message : 'An unknown error occurred';
+    return next(new AppError(message, errorManagement.commonErrors.internalServerError.code, false));
   }
 };
 

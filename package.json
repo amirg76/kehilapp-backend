@@ -4,18 +4,24 @@
   "description": "Backend Node.js",
   "main": "index.js",
   "type": "module",
+  "config": {
+    "comment": "mongodb-memory-server defaults to MongoDB 5.0, which links against OpenSSL 1.1. GitHub's ubuntu-latest moved to 24.04, which ships OpenSSL 3 and no libcrypto.so.1.1, so every integration test failed to start a database there while passing locally on Windows. 8.0 links against OpenSSL 3 and is the first line MongoDB publishes an ubuntu2404 build for -- 7.0 has none, so the download 404s there. Pinned here rather than in the workflow so a developer on a current Linux gets the same result as CI.",
+    "mongodbMemoryServer": {
+      "version": "8.0.4"
+    }
+  },
   "scripts": {
     "start": "node src/index.js",
     "local": "cross-env NODE_ENV=local nodemon src/index.js",
     "dev": "cross-env NODE_ENV=dev nodemon src/index.js",
     "prod": "cross-env NODE_ENV=prod nodemon src/index.js",
     "test": "jest",
-    "test:unit": "jest unit",
-    "test:int": "jest int",
+    "test:unit": "jest --selectProjects unit",
+    "test:int": "jest --selectProjects int --runInBand",
     "test:coverage": "jest --coverage",
     "format": "npm run prettier:fix && npm run lint:fix",
-    "lint:fix": "npm run lint -- --fix",
-    "lint": "eslint \"**/*.js\" --ignore-pattern node_modules/",
+    "lint:fix": "eslint src --ext .js --fix",
+    "lint": "eslint src --ext .js",
     "prettier": "npx prettier *.js --check",
     "prettier:fix": "npm run prettier -- --write"
   },
@@ -44,18 +50,23 @@
     "husky": "^7.0.2",
     "jest": "^27.1.0",
     "lint-staged": "^11.1.2",
-    "nodemon": "^2.0.12",
-    "prettier": "^2.3.2"
+    "nodemon": "^3.1.14",
+    "prettier": "^2.3.2",
+    "supertest": "^7.2.2"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.489.0",
     "@aws-sdk/s3-request-presigner": "^3.490.0",
+    "bcryptjs": "^3.0.3",
     "celebrate": "^15.0.1",
     "colors": "^1.4.0",
     "cookie-parser": "^1.4.6",
     "dotenv": "^10.0.0",
     "dotenv-flow": "^3.2.0",
     "express-async-errors": "^3.1.1",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.6.2",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.1",
     "module-alias": "^2.2.3",
     "mongodb-memory-server": "^8.15.0",
@@ -74,5 +85,8 @@
     "@categories": "./apps/categories",
     "@messages": "./apps/messages",
     "@users": "./apps/users"
+  },
+  "overrides": {
+    "lodash": "^4.18.1"
   }
 }

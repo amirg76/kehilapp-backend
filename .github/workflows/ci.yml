@@ -1,0 +1,125 @@
+name: CI
+
+# Two layers, deliberately separated:
+#
+#   floor  — deterministic checks. These BLOCK a merge. No model is involved and
+#            there is nothing to argue with.
+#   review — agent reviewers. These COMMENT. They never block, because a reviewer
+#            that can wave something through is not a gate.
+#
+# The floor exists because this repo shipped with its auth middleware commented
+# out. The middleware was written and working; nothing checked that it was wired
+# up. Rules block, agents advise.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  floor:
+    name: "Floor: deterministic gate"
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 because the secret scan below diffs a commit range. A
+      # shallow clone leaves the base commit unfetched, and gitleaks then fails
+      # to resolve it -- or, worse, scans zero bytes and reports no leaks
+      # found, which reads as a pass. A scanner that cannot see history cannot
+      # scan history.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # Blocks the build if anything shaped like a credential is in the tree or
+      # its recent history. This repo's own past made the case: plaintext
+      # credential files sat in a sibling project folder for years.
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npx eslint src --max-warnings=0
+
+      # The auth-guard test lives in this suite. A route registered without the
+      # auth middleware, and not explicitly allowlisted, fails here.
+      - name: Tests
+        run: npx jest --ci --runInBand
+        env:
+          JWT_SECRET: test-secret
+          BUCKET_NAME: test-bucket
+          BUCKET_REGION: us-east-1
+          BUCKET_ACCESS_KEY: test-key
+          BUCKET_SECRET_ACCESS_KEY: test-secret-key
+
+      # Blocks on high/critical in the dependencies that actually ship.
+      - name: Dependency audit (production)
+        run: npm audit --omit=dev --audit-level=high
+
+      # Dev-tool advisories are real but a different risk class: they never reach
+      # a request. Reported for visibility, never a reason to block a deploy.
+      - name: Dependency audit (dev, advisory only)
+        run: npm audit --audit-level=high || true
+
+  review:
+    name: "Review: agent lenses"
+    runs-on: ubuntu-latest
+    needs: floor
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    # Three distinct lenses, not three copies of one reviewer. Redundant
+    # reviewers share blind spots; different questions do not.
+    strategy:
+      fail-fast: false
+      matrix:
+        lens:
+          - name: security
+            prompt: >-
+              Review this diff for remotely reachable security problems only:
+              missing authentication or authorization on a route, injection into
+              a database query, unvalidated file upload, secrets in code, unsafe
+              CORS. Ignore style. Report nothing if there is nothing exploitable.
+          - name: architecture
+            prompt: >-
+              This codebase is feature-sliced: apps/<feature>/{dataAccess,domain,
+              entryPoints}. Report only violations of that layering — a domain
+              file importing a model directly, an entryPoint holding business
+              logic, a repository reaching across features. Ignore style.
+          - name: intent
+            prompt: >-
+              Compare this diff against what the pull request description claims
+              it does. Report only mismatches: changes the description does not
+              mention, or claims the diff does not implement.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Review (${{ matrix.lens.name }})
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            ${{ matrix.lens.prompt }}
+
+            Post findings as a single PR comment prefixed "${{ matrix.lens.name }} lens".
+            Be specific: file and line. If you find nothing, say so in one line.
+            You are advising, not gating — the deterministic checks already ran.

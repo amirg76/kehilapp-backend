@@ -1,12 +1,22 @@
 import { applyErrorHandlingMiddleware } from '../../../errors/utils/dbErrorHandling.js';
 import mongoose, { Schema } from 'mongoose';
+import { messageConstants } from '../../../config/validationConstants.js';
 
 const messageSchema = new Schema(
   {
     categoryId: { type: String, required: true },
-    senderId: { type: String }, //* required: true - temporary remove requirment, to be replaced with auth
+    // The controller always sets this from the authenticated token, so a message
+    // with no author can no longer be written.
+    senderId: { type: String, required: true },
     title: { type: String, required: true },
-    text: { type: String },
+    // Joi caps the body on the HTTP route; this caps it on every other write
+    // path — Message.create from a script, the seed bulkWrite, a future job.
+    text: { type: String, maxlength: messageConstants.textMaxLength },
+    // Content tier. 'public' is readable by anyone (the showcase posture);
+    // 'members' is withheld from anonymous callers entirely — never listed and
+    // never revealed by direct id. Default 'public' so existing documents and any
+    // create that omits the field stay visible exactly as before.
+    visibility: { type: String, enum: ['public', 'members'], default: 'public' },
     attachmentName: { type: String },
     attachmentKey: { type: String },
     attachmentType: { type: String },

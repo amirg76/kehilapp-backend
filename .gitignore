@@ -4,6 +4,17 @@
 # env files
 .env
 .env.*
+!.env.example
+
+# secrets and keys — nothing here exists today, and nothing should ever be able
+# to stage by accident either.
+secrets/
+prod.env
+*.pem
+*.key
+*.p12
+*credentials*.json
+id_rsa
 
 # misc
 .DS_Store
@@ -11,3 +22,12 @@
 
 # logs
 /src/logs
+# Any log file, wherever it lands. /src/logs alone covered the directory the app
+# writes to and nothing else — and a log file is exactly where a secret leaks
+# without anyone reviewing the diff.
+*.log
+# Cygwin/MSYS crash dumps — a tool crashed here once and left this behind.
+*.stackdump
+
+# test output
+coverage/
