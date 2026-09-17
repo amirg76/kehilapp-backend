@@ -4,6 +4,12 @@
   "description": "Backend Node.js",
   "main": "index.js",
   "type": "module",
+  "config": {
+    "comment": "mongodb-memory-server defaults to MongoDB 5.0, which links against OpenSSL 1.1. GitHub's ubuntu-latest moved to 24.04, which ships OpenSSL 3 and no libcrypto.so.1.1, so every integration test failed to start a database there while passing locally on Windows. 7.0 links against OpenSSL 3 and runs on both. Pinned here rather than in the workflow so a developer on a current Linux gets the same result as CI.",
+    "mongodbMemoryServer": {
+      "version": "7.0.14"
+    }
+  },
   "scripts": {
     "start": "node src/index.js",
     "local": "cross-env NODE_ENV=local nodemon src/index.js",

@@ -14,6 +14,12 @@ beforeAll(async () => {
       // route (MONGOMS_LAUNCH_TIMEOUT) does not reach jest workers reliably,
       // so it is pinned in code where it cannot get lost.
       launchTimeout: 120000,
+      // mongodb-memory-server defaults to the ephemeralForTest engine, which
+      // MongoDB removed in 7.0 -- and 7.0 is what this project pins, because
+      // the 5.0 default links against OpenSSL 1.1 and will not start on the
+      // Ubuntu 24.04 image CI now runs. wiredTiger is what a real deployment
+      // uses anyway, so the tests exercise the same engine as production.
+      storageEngine: 'wiredTiger',
     },
   });
   const mongoUri = mongod.getUri();
