@@ -49,6 +49,13 @@
  * Both flags are required to write. `--yes` alone still refuses in production,
  * and the long flag alone is still a dry run.
  *
+ * WHICH DATABASE. MONGO_URI if it is set; otherwise, if the gitignored Atlas env
+ * file is present at the repository root, the URI is read out of it in-process and
+ * the demo database is forced in — exactly as scripts/atlas-stack.cjs does, and
+ * with the same code. The operator therefore never puts a live connection string
+ * on a command line, where the shell history and the process list would keep it.
+ * The full order is on mongoUri() below.
+ *
  * RE-RUNNING. A second run changes nothing that the first run left behind, and
  * it never re-admits an account revoked in between. It is NOT a no-op in the
  * absolute sense: an account created between the two runs and still awaiting a
@@ -60,9 +67,10 @@
  */
 import mongoose from 'mongoose';
 
-import { getMongoUri } from '../src/config/env.js';
 import { isKnownNonProduction, isProduction, nodeEnvName } from '../src/config/environment.js';
 import User from '../src/apps/users/dataAccess/userModel.js';
+import { databaseNameOf, demoDatabases, DEMO_SUFFIX } from './lib/demoDatabase.js';
+import { resolveMongoUri } from './lib/mongoUri.js';
 
 /**
  * The flag that opens the production door. Kept as a sentence on purpose: there
@@ -76,48 +84,41 @@ const PRODUCTION_FLAG = '--i-understand-this-is-production';
 /** Kept in step with scripts/seedDemo.js — see the rationale there. `kehilapp`, the
  *  real application database, is deliberately absent, and ATLAS_DEMO_DB is
  *  validated rather than trusted (an unchecked value put the board back on this
- *  list). */
-const APPLICATION_DATABASE = 'kehilapp';
-const DEMO_SUFFIX = '_demo';
+ *  list). The rule itself now lives in scripts/lib/demoDatabase.js so this script
+ *  and scripts/removeUserByEmail.js enforce one copy of it. */
+const SCRIPT_NAME = 'approveExistingUsers';
 
-/** See scripts/seedDemo.js for why the rule is a `_demo` suffix and not a blocklist. */
-const atlasDemoDatabase = () => {
-  const raw = (process.env.ATLAS_DEMO_DB || '').trim();
-  if (!raw) return '';
-  if (raw === APPLICATION_DATABASE) {
-    console.error(
-      `approveExistingUsers: refusing ATLAS_DEMO_DB="${raw}" — that is the real application database, and an environment variable is not how this script is pointed at it. Use ${PRODUCTION_FLAG} instead, which says so out loud and prints what it will do.`,
-    );
-    process.exit(1);
-  }
-  if (!raw.endsWith(DEMO_SUFFIX)) {
-    console.error(
-      `approveExistingUsers: refusing ATLAS_DEMO_DB="${raw}" — a demo database must be named as one, ending in "${DEMO_SUFFIX}".`,
-    );
-    process.exit(1);
-  }
-  return raw;
-};
-
-const DEMO_DATABASES = ['kehilapp_demo', atlasDemoDatabase()].filter(Boolean);
+const DEMO_DATABASES = demoDatabases({
+  scriptName: SCRIPT_NAME,
+  applicationDatabaseReason: `that is the real application database, and an environment variable is not how this script is pointed at it. Use ${PRODUCTION_FLAG} instead, which says so out loud and prints what it will do.`,
+});
 
 /**
- * The database a Mongo connection string resolves to, or '' when it names none.
- * Credentials are stripped before anything is read, so nothing secret can reach
- * a log line built from this value.
+ * WHERE THE CONNECTION STRING COMES FROM — the order, spelled out, because the
+ * whole point is that an operator never has to type a live URI into a terminal:
+ *
+ *   1. MONGO_URI from the environment, if set. This is what the tests use and it
+ *      behaves exactly as it always did; when it is set nothing else is consulted.
+ *   2. Otherwise, if the Atlas env file is present at the repository root, the URI
+ *      is read out of it in-process and the DEMO database is forced into it — the
+ *      same file and the same two functions scripts/atlas-stack.cjs uses.
+ *   3. Otherwise the script fails, naming both options.
+ *
+ * Resolved once and reused: step 2 touches the filesystem, and re-reading it per
+ * call would be three reads of a secret file for no reason. The value is never
+ * printed anywhere below — only databaseNameOf() of it, which strips credentials.
  */
-const databaseNameOf = (uri) => {
-  const [authority] = String(uri)
-    .replace(/^mongodb(\+srv)?:\/\//i, '')
-    .split('?');
-  const afterCredentials = authority.slice(authority.lastIndexOf('@') + 1);
-  const slash = afterCredentials.indexOf('/');
-  if (slash === -1) return '';
-  try {
-    return decodeURIComponent(afterCredentials.slice(slash + 1));
-  } catch {
-    return afterCredentials.slice(slash + 1);
+let cachedUri;
+const mongoUri = () => {
+  if (cachedUri === undefined) {
+    cachedUri = resolveMongoUri({
+      scriptName: SCRIPT_NAME,
+      // Already validated by demoDatabases() above: an ATLAS_DEMO_DB that is not
+      // named as a demo database has exited the process before this runs.
+      atlasDemoDatabase: DEMO_DATABASES[DEMO_DATABASES.length - 1],
+    });
   }
+  return cachedUri;
 };
 
 /**
@@ -128,7 +129,7 @@ const databaseNameOf = (uri) => {
  * itself, which carries credentials. Only the database name.
  */
 const authoriseTarget = () => {
-  const dbName = databaseNameOf(getMongoUri());
+  const dbName = databaseNameOf(mongoUri());
   const named = dbName || '(none named in MONGO_URI)';
   const acknowledged = process.argv.includes(PRODUCTION_FLAG);
 
@@ -222,12 +223,13 @@ const run = async () => {
   // server in tests and a remote Atlas database in the deployment it exists
   // for. A migration that gives up on a slow connection looks like a migration
   // that failed, and an operator who sees that will reach for mongosh instead.
-  await mongoose.connect(getMongoUri(), {
+  await mongoose.connect(mongoUri(), {
     serverSelectionTimeoutMS: 60000,
     connectTimeoutMS: 60000,
     socketTimeoutMS: 60000,
   });
-  console.log(`connected (database: ${databaseNameOf(getMongoUri())})`);
+  // The NAME only. The URI carries credentials and is never logged.
+  console.log(`connected (database: ${databaseNameOf(mongoUri())})`);
 
   const total = await User.countDocuments();
   const before = await User.countDocuments(PENDING_FILTER);
