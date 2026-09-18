@@ -85,6 +85,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      # claude-code-action exchanges a GitHub OIDC token for its own
+      # credentials, and a job cannot mint one without this. Without it the
+      # action fails at "Failed to get OIDC token" -- which looks like a
+      # missing API key and is not: the key is a repository secret and was
+      # already there. Requesting it here rather than at the top of the file
+      # keeps every other job unable to mint one.
+      id-token: write
     # Three distinct lenses, not three copies of one reviewer. Redundant
     # reviewers share blind spots; different questions do not.
     strategy:
