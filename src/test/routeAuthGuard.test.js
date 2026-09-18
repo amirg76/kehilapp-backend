@@ -70,6 +70,11 @@ const ADMIN_ONLY_ROUTES = [
   // Changing a role is the strongest act in the API: it is the only way to take
   // an admin's powers away, and equally the only way to hand them out.
   'PATCH /api/users/:userId/role',
+  // The only route in this API that spends money. It shipped its first cut with
+  // `requireApproved` alone, and a live run proved a seeded member got 200 from
+  // it; listing it here is what makes that a test failure rather than something
+  // a reviewer has to notice again.
+  'POST /api/messages/classify',
 ];
 
 /**

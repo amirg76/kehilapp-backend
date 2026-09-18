@@ -13,6 +13,10 @@ import {
   updateFileInBucket,
   deleteFileFromBucket,
 } from '../../../services/s3.js';
+// AI classification (optional feature — see the 503 in classifyMessage)
+import { isClassifierConfigured, classifyMessage as classifyWithModel } from '../../../services/categoryClassifier.js';
+// shared value lists
+import { messageUrgencyLevels } from '../../../config/validationConstants.js';
 // error handlers
 import AppError from '../../../errors/AppError.js';
 import errorManagement from '../../../errors/utils/errorManagement.js';
@@ -42,6 +46,26 @@ const isForbiddenVisibilityRequest = (req, { onUpdate = false } = {}) => {
     return false;
   }
   return onUpdate || req.body.visibility === 'members';
+};
+
+/**
+ * True when a non-admin explicitly asked for an urgency they may not set.
+ *
+ * Deliberately the same shape as isForbiddenVisibilityRequest, down to the
+ * onUpdate asymmetry, because it is the same problem: a resident marking their
+ * own notice 'urgent' would push it above the announcements an admin actually
+ * classified that way, and a silent downgrade to 'routine' would hand them a 200
+ * for a request the server did not carry out.
+ *
+ * On create an explicit 'routine' passes: it is the default they would get
+ * anyway. On update ANY explicit value is refused, because 'routine' on a
+ * message an admin marked 'urgent' is a downgrade the caller may not perform.
+ */
+const isForbiddenUrgencyRequest = (req, { onUpdate = false } = {}) => {
+  if (req.role === 'admin' || req.body.urgency === undefined) {
+    return false;
+  }
+  return onUpdate || req.body.urgency !== 'routine';
 };
 
 /**
@@ -76,6 +100,21 @@ const resolveVisibility = (req, { onUpdate = false } = {}) => {
     return req.body.visibility;
   }
   return onUpdate ? undefined : 'public';
+};
+
+/**
+ * Decides which urgency a write may land in — the urgency counterpart of
+ * resolveVisibility, and it follows the same rules for the same reasons.
+ *
+ * Callers run isForbiddenUrgencyRequest first, so by the time this runs a
+ * non-admin has either omitted the field or sent the value they would have got
+ * anyway — 'routine' on create, no change at all on update.
+ */
+const resolveUrgency = (req, { onUpdate = false } = {}) => {
+  if (req.role === 'admin' && messageUrgencyLevels.includes(req.body.urgency)) {
+    return req.body.urgency;
+  }
+  return onUpdate ? undefined : 'routine';
 };
 
 // get messages filtered by query and categories
@@ -149,7 +188,7 @@ export const getMessageById = async (req, res, next) => {
 export const createMessage = async (req, res, next) => {
   // Refused before the attachment is uploaded: a rejected write must not leave
   // an orphan object in the bucket.
-  if (isForbiddenVisibilityRequest(req)) {
+  if (isForbiddenVisibilityRequest(req) || isForbiddenUrgencyRequest(req)) {
     return next(forbiddenError());
   }
 
@@ -158,6 +197,7 @@ export const createMessage = async (req, res, next) => {
   // caller could claim to be anyone. This closes the old TODO in the repository.
   const senderId = req.userId;
   const visibility = resolveVisibility(req);
+  const urgency = resolveUrgency(req);
   const file = req.file;
 
   let attachmentName, attachmentType, attachmentKey; //attachment file properties
@@ -176,6 +216,7 @@ export const createMessage = async (req, res, next) => {
     attachmentType,
     senderId,
     visibility,
+    urgency,
   );
 
   if (attachmentKey) {
@@ -189,7 +230,7 @@ export const createMessage = async (req, res, next) => {
 
 // update a message, and replace an existing file
 export const updateMessage = async (req, res, next) => {
-  if (isForbiddenVisibilityRequest(req, { onUpdate: true })) {
+  if (isForbiddenVisibilityRequest(req, { onUpdate: true }) || isForbiddenUrgencyRequest(req, { onUpdate: true })) {
     return next(forbiddenError());
   }
 
@@ -202,6 +243,12 @@ export const updateMessage = async (req, res, next) => {
   const visibility = resolveVisibility(req, { onUpdate: true });
   if (visibility !== undefined) {
     fields.visibility = visibility;
+  }
+  // Same contract for urgency: undefined means "leave the stored level alone",
+  // so an ordinary title edit never quietly demotes an urgent notice.
+  const urgency = resolveUrgency(req, { onUpdate: true });
+  if (urgency !== undefined) {
+    fields.urgency = urgency;
   }
   if (file) {
     fields.attachmentName = file.originalname;
@@ -233,6 +280,49 @@ export const updateMessage = async (req, res, next) => {
   }
 
   return res.status(200).json(message);
+};
+
+// suggest a category and an urgency for a message being written
+export const classifyMessage = async (req, res, next) => {
+  // WHY THIS DEGRADES INSTEAD OF REFUSING TO BOOT.
+  //
+  // assertKnownEnvironment (config/environment.js) is the opposite call, and the
+  // difference is what the missing value decides. There, an unrecognised NODE_ENV
+  // silently picks the wrong half of every SECURITY branch — the cookie's
+  // `secure` flag, the CORS allowlist — so a server that guesses is worse than a
+  // server that stops. Here the missing value decides whether one convenience is
+  // available. A kibbutz board with no ANTHROPIC_API_KEY is a board where the
+  // admin types the category themselves, exactly as before this feature existed;
+  // refusing to boot over it would take the whole community's site down to
+  // protect a suggestion button.
+  //
+  // 503 rather than 404 or 501: the route exists and will work the moment a key
+  // is configured, and a caller that gets 404 has no way to tell "not deployed"
+  // from "turned off here".
+  if (!isClassifierConfigured()) {
+    return next(
+      new AppError(
+        'Message classification is not configured on this server.',
+        errorManagement.commonErrors.serviceUnavailable.code,
+        true,
+      ),
+    );
+  }
+
+  const { title, text } = req.body;
+
+  // The service throws AppError for every outcome it can name — a refusal, an
+  // invented category, an upstream failure — so they travel the same path as
+  // every other error in this file. Anything it does NOT name arrives here
+  // non-operational and globalErrorHandler answers a generic 500 rather than
+  // leaking an SDK stack to the admin panel.
+  const suggestion = await classifyWithModel({ title, text });
+
+  // Nothing is written. The response is a proposal the admin edits or discards,
+  // and the message is created by the ordinary POST / route afterwards — which
+  // is also what keeps the urgency rules above the only place urgency is
+  // authorised.
+  res.status(200).json(suggestion);
 };
 
 // delete a message
