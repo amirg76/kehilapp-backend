@@ -8,7 +8,11 @@ const messageSchema = new Schema(
     // The controller always sets this from the authenticated token, so a message
     // with no author can no longer be written.
     senderId: { type: String, required: true },
-    title: { type: String, required: true },
+    // Same reason as `text` below: Joi capped the title at 25 on the HTTP route
+    // while the schema capped it nowhere, so any write that did not go through
+    // the route could store a title the route would have refused. Mirroring the
+    // constant here means one number governs both layers and they cannot drift.
+    title: { type: String, required: true, maxlength: messageConstants.titleMaxLength },
     // Joi caps the body on the HTTP route; this caps it on every other write
     // path — Message.create from a script, the seed bulkWrite, a future job.
     text: { type: String, maxlength: messageConstants.textMaxLength },

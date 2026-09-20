@@ -194,11 +194,16 @@ const categories = [
 // 'routine' for every message that omits it.
 // Each message names its `category` by title; the id is resolved after the
 // categories are created. Bodies are 2–3 sentences so the feed reads as real.
+// Every `title` here must stay within messageConstants.titleMaxLength (25). This
+// script writes straight to the model and never passes through Joi, so an
+// over-long title is not rejected at the route — it aborts the whole seed, and
+// with it `node scripts/live-stack.cjs`. Two titles were 27 and 28 characters
+// when the model gained its cap and were shortened rather than the cap loosened.
 const messages = [
   // ── חינוך ──
   { category: 'חינוך', visibility: 'public', urgency: 'important', title: 'נפתחה ההרשמה לגן הילדים', text: 'ההרשמה לשנת הלימודים הקרובה נפתחה ותיסגר בסוף החודש. יש למלא את טופס הרישום ולצרף צילום תעודת זהות של ההורה. לשאלות ניתן לפנות לצוות הגן בשעות הבוקר. (הודעת הדגמה)' },
   { category: 'חינוך', visibility: 'public', title: 'סדנת העשרה במתמטיקה', text: 'סדנה שבועית לתלמידי כיתות ד׳–ו׳ תיפתח ביום שלישי אחר הצהריים בחדר החוגים. הסדנה מתמקדת בחיזוק ביטחון והבנה דרך משחקים וחידות. מספר המקומות מוגבל. (הודעת הדגמה)' },
-  { category: 'חינוך', visibility: 'members', title: 'רשימת תלמידים לחונכות אישית', text: 'הרשימה המלאה והשיבוץ למורים זמינים לחברי צוות החינוך בלבד. הרשימה כוללת פרטי קשר והערות אישיות, ולכן מוגבלת לצפייה. (תוכן לחברים בלבד) (הודעת הדגמה)' },
+  { category: 'חינוך', visibility: 'members', title: 'רשימת תלמידים לחונכות', text: 'הרשימה המלאה והשיבוץ למורים זמינים לחברי צוות החינוך בלבד. הרשימה כוללת פרטי קשר והערות אישיות, ולכן מוגבלת לצפייה. (תוכן לחברים בלבד) (הודעת הדגמה)' },
   // ── בריאות ──
   // The one 'urgent' message in the seed. Without it the urgency feature seeds a
   // board on which every badge is the default and nothing is ever escalated —
@@ -221,7 +226,7 @@ const messages = [
   // ── אלטרנטיבי ──
   { category: 'אלטרנטיבי', visibility: 'public', title: 'שיעור יוגה בבוקר', text: 'שיעור יוגה פתוח על הדשא, בימי שבת בשעה 07:30. השיעור מתאים לכל הרמות ומועבר באווירה נעימה. הביאו מזרן ובקבוק מים. (הודעת הדגמה)' },
   { category: 'אלטרנטיבי', visibility: 'public', title: 'קבוצת מדיטציה שבועית', text: 'מפגש מדיטציה מודרכת בימי רביעי בערב במרכז הקהילתי. המפגש מתאים גם למתחילים ואין צורך בניסיון קודם. (הודעת הדגמה)' },
-  { category: 'אלטרנטיבי', visibility: 'members', title: 'רשימת מטפלים משלימים מומלצים', text: 'רשימה שנאספה על ידי חברי הקהילה, זמינה לאחר התחברות. ההמלצות אישיות ולא תחליף לייעוץ רפואי. (תוכן לחברים בלבד) (הודעת הדגמה)' },
+  { category: 'אלטרנטיבי', visibility: 'members', title: 'רשימת מטפלים משלימים', text: 'רשימה שנאספה על ידי חברי הקהילה, זמינה לאחר התחברות. ההמלצות אישיות ולא תחליף לייעוץ רפואי. (תוכן לחברים בלבד) (הודעת הדגמה)' },
   // ── זכויות ──
   { category: 'זכויות', visibility: 'public', title: 'ייעוץ זכויות חינם', text: 'עורך דין מתנדב ייתן ייעוץ ראשוני בנושאי זכויות, בתיאום מראש. השירות ניתן בדיסקרטיות מלאה וללא עלות. לקביעת תור פנו למזכירות. (הודעת הדגמה)' },
   { category: 'זכויות', visibility: 'public', title: 'מדריך למימוש זכאות דיור', text: 'מדריך מפורט הוכן עבור התושבים ומסביר שלב-אחר-שלב את תהליך מימוש הזכאות. המדריך זמין במזכירות ובאתר. (הודעת הדגמה)' },
