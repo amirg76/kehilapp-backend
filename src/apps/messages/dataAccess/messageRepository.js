@@ -67,9 +67,10 @@ export const getMessageByIdFromDb = async (id, { includeMembers = false } = {}) 
 /**
  * senderId now comes from the verified token — see the controller.
  *
- * `visibility` is taken as given and defaults to 'public'. Whether the caller was
- * ALLOWED to ask for the members tier is a role question the controller has
- * already answered; this layer stays role-agnostic on purpose.
+ * `visibility` and `urgency` are taken as given and default to the values the
+ * schema would have applied anyway. Whether the caller was ALLOWED to ask for
+ * the members tier, or for an urgency above routine, is a role question the
+ * controller has already answered; this layer stays role-agnostic on purpose.
  */
 export const addMessageToDb = async (
   categoryId,
@@ -80,6 +81,7 @@ export const addMessageToDb = async (
   attachmentType,
   senderId,
   visibility = 'public',
+  urgency = 'routine',
 ) => {
   return await MessageModel.create({
     categoryId,
@@ -90,6 +92,7 @@ export const addMessageToDb = async (
     attachmentType,
     senderId,
     visibility,
+    urgency,
   });
 };
 /**
@@ -112,6 +115,7 @@ export const updateMessageInDb = async (id, fields, { requesterId, isAdmin } = {
     ...(fields.title !== undefined && { title: fields.title }),
     ...(fields.text !== undefined && { text: fields.text }),
     ...(fields.visibility !== undefined && { visibility: fields.visibility }),
+    ...(fields.urgency !== undefined && { urgency: fields.urgency }),
     ...(fields.attachmentName !== undefined && { attachmentName: fields.attachmentName }),
     ...(fields.attachmentKey !== undefined && { attachmentKey: fields.attachmentKey }),
     ...(fields.attachmentType !== undefined && { attachmentType: fields.attachmentType }),

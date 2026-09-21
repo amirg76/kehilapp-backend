@@ -12,7 +12,25 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const { spawn } = require('child_process');
 
 (async () => {
-  const mongod = await MongoMemoryServer.create();
+  // storageEngine mirrors jest.mongo.setup.js, and for the same reason: this
+  // project pins mongodb-memory-server to a MongoDB build (package.json ->
+  // config.mongodbMemoryServer) from which `ephemeralForTest` — the library's
+  // own default — has been removed. The jest setup was given this override when
+  // the version was pinned; this script was not, so `node scripts/live-stack.cjs`
+  // has since died on startup with "unknown storage engine: ephemeralForTest"
+  // while the whole test suite stayed green. Measured here on 18.9.2026: it
+  // failed before this line was added and started after.
+  const mongod = await MongoMemoryServer.create({
+    instance: {
+      storageEngine: 'wiredTiger',
+      // Carried across with storageEngine rather than left behind. jest.mongo
+      // .setup.js documents BOTH overrides — the engine and this timeout, which
+      // exists because the library's 10s default failed on this machine — and
+      // copying only the first would repeat the drift that broke this script in
+      // the first place: one file got the fix, its neighbour did not.
+      launchTimeout: 120000,
+    },
+  });
   // `kehilapp_demo`, not `kehilapp`. This throwaway server holds demo data only,
   // and `kehilapp` is the name of the REAL application database
   // (docs/05-running-locally.md) — scripts/seedDemo.js no longer accepts it, on

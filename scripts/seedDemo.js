@@ -188,20 +188,33 @@ const categories = [
 ];
 
 // A deliberate MIX of visibility tiers so the showcase demonstrates both:
-//  - 'public'  — visible to anyone. There are 18 of these (>=15 as requested).
+//  - 'public'  — visible to anyone. There are 19 of these (>=15 as requested).
 //  - 'members' — withheld from anonymous callers; labelled "(תוכן לחברים בלבד)".
+// `urgency` is named only where it is NOT the default: the schema fills in
+// 'routine' for every message that omits it.
 // Each message names its `category` by title; the id is resolved after the
 // categories are created. Bodies are 2–3 sentences so the feed reads as real.
+// Every `title` here must stay within messageConstants.titleMaxLength (25). This
+// script writes straight to the model and never passes through Joi, so an
+// over-long title is not rejected at the route — it aborts the whole seed, and
+// with it `node scripts/live-stack.cjs`. Two titles were 27 and 28 characters
+// when the model gained its cap and were shortened rather than the cap loosened.
 const messages = [
   // ── חינוך ──
-  { category: 'חינוך', visibility: 'public', title: 'נפתחה ההרשמה לגן הילדים', text: 'ההרשמה לשנת הלימודים הקרובה נפתחה ותיסגר בסוף החודש. יש למלא את טופס הרישום ולצרף צילום תעודת זהות של ההורה. לשאלות ניתן לפנות לצוות הגן בשעות הבוקר. (הודעת הדגמה)' },
+  { category: 'חינוך', visibility: 'public', urgency: 'important', title: 'נפתחה ההרשמה לגן הילדים', text: 'ההרשמה לשנת הלימודים הקרובה נפתחה ותיסגר בסוף החודש. יש למלא את טופס הרישום ולצרף צילום תעודת זהות של ההורה. לשאלות ניתן לפנות לצוות הגן בשעות הבוקר. (הודעת הדגמה)' },
   { category: 'חינוך', visibility: 'public', title: 'סדנת העשרה במתמטיקה', text: 'סדנה שבועית לתלמידי כיתות ד׳–ו׳ תיפתח ביום שלישי אחר הצהריים בחדר החוגים. הסדנה מתמקדת בחיזוק ביטחון והבנה דרך משחקים וחידות. מספר המקומות מוגבל. (הודעת הדגמה)' },
-  { category: 'חינוך', visibility: 'members', title: 'רשימת תלמידים לחונכות אישית', text: 'הרשימה המלאה והשיבוץ למורים זמינים לחברי צוות החינוך בלבד. הרשימה כוללת פרטי קשר והערות אישיות, ולכן מוגבלת לצפייה. (תוכן לחברים בלבד) (הודעת הדגמה)' },
+  { category: 'חינוך', visibility: 'members', title: 'רשימת תלמידים לחונכות', text: 'הרשימה המלאה והשיבוץ למורים זמינים לחברי צוות החינוך בלבד. הרשימה כוללת פרטי קשר והערות אישיות, ולכן מוגבלת לצפייה. (תוכן לחברים בלבד) (הודעת הדגמה)' },
   // ── בריאות ──
-  { category: 'בריאות', visibility: 'public', title: 'שינוי בשעות פתיחת המרפאה', text: 'החל מהשבוע הקרוב המרפאה תפתח בשעה 08:00 במקום 07:30. השינוי נובע מהתאמת לוח המשמרות החדש. במקרה חירום ניתן להמשיך להתקשר לקו הכוננות. (הודעת הדגמה)' },
+  // The one 'urgent' message in the seed. Without it the urgency feature seeds a
+  // board on which every badge is the default and nothing is ever escalated —
+  // the feature would look broken while working correctly. One is also the right
+  // number: an 'urgent' tier that appears on a quarter of the board stops
+  // meaning "drop what you are doing".
+  { category: 'בריאות', visibility: 'public', urgency: 'urgent', title: 'הפסקת מים יזומה מחר', text: 'עקב תיקון דחוף בקו הראשי, אספקת המים תופסק מחר בין 08:00 ל-14:00 בכל אזור המגורים. אנא אגרו מים לשתייה מראש. במקרה של תקלה ממושכת תוצב עמדת חלוקה ליד המזכירות. (הודעת הדגמה)' },
+  { category: 'בריאות', visibility: 'public', urgency: 'important', title: 'שינוי בשעות פתיחת המרפאה', text: 'החל מהשבוע הקרוב המרפאה תפתח בשעה 08:00 במקום 07:30. השינוי נובע מהתאמת לוח המשמרות החדש. במקרה חירום ניתן להמשיך להתקשר לקו הכוננות. (הודעת הדגמה)' },
   { category: 'בריאות', visibility: 'public', title: 'חיסוני שפעת עונתיים', text: 'ניתן להתחסן במרפאה בימים א׳ ו-ג׳ בין 09:00 ל-12:00, ללא תור מראש. החיסון מומלץ במיוחד לבני גיל השלישי ולאנשים עם מחלות רקע. אין צורך להביא טופס. (הודעת הדגמה)' },
   { category: 'בריאות', visibility: 'public', title: 'הרצאה: תזונה נכונה בקיץ', text: 'הרצאה פתוחה לקהל עם דיאטנית קלינית, ביום חמישי בשעה 19:00 במועדון. נדבר על שתייה, קירור נכון ואיזון בימי החום. הכניסה חופשית וללא עלות. (הודעת הדגמה)' },
-  { category: 'בריאות', visibility: 'members', title: 'פרטי כוננות רפואית לילה', text: 'שמות ומספרי טלפון של הכוננים זמינים לחברי הקהילה בלבד. אנא לשמור על הפרטיות ולהתקשר רק במקרה צורך אמיתי. (תוכן לחברים בלבד) (הודעת הדגמה)' },
+  { category: 'בריאות', visibility: 'members', urgency: 'important', title: 'פרטי כוננות רפואית לילה', text: 'שמות ומספרי טלפון של הכוננים זמינים לחברי הקהילה בלבד. אנא לשמור על הפרטיות ולהתקשר רק במקרה צורך אמיתי. (תוכן לחברים בלבד) (הודעת הדגמה)' },
   // ── קריירה ──
   { category: 'קריירה', visibility: 'public', title: 'דרושים: רכז/ת פעילות נוער', text: 'משרה חלקית לרכז/ת פעילות נוער בשעות אחר הצהריים והערב. התפקיד כולל הפעלת חוגים, ליווי טיולים ועבודה מול הורים. קורות חיים ניתן לשלוח למזכירות. (הודעת הדגמה)' },
   { category: 'קריירה', visibility: 'public', title: 'סדנת כתיבת קורות חיים', text: 'סדנה מעשית בהנחיית יועצת תעסוקה, שתעזור לבנות קורות חיים בולטים ולהתכונן לראיון עבודה. המפגש מתאים למחפשי עבודה ולמעוניינים בשינוי קריירה. מקומות מוגבלים. (הודעת הדגמה)' },
@@ -213,11 +226,11 @@ const messages = [
   // ── אלטרנטיבי ──
   { category: 'אלטרנטיבי', visibility: 'public', title: 'שיעור יוגה בבוקר', text: 'שיעור יוגה פתוח על הדשא, בימי שבת בשעה 07:30. השיעור מתאים לכל הרמות ומועבר באווירה נעימה. הביאו מזרן ובקבוק מים. (הודעת הדגמה)' },
   { category: 'אלטרנטיבי', visibility: 'public', title: 'קבוצת מדיטציה שבועית', text: 'מפגש מדיטציה מודרכת בימי רביעי בערב במרכז הקהילתי. המפגש מתאים גם למתחילים ואין צורך בניסיון קודם. (הודעת הדגמה)' },
-  { category: 'אלטרנטיבי', visibility: 'members', title: 'רשימת מטפלים משלימים מומלצים', text: 'רשימה שנאספה על ידי חברי הקהילה, זמינה לאחר התחברות. ההמלצות אישיות ולא תחליף לייעוץ רפואי. (תוכן לחברים בלבד) (הודעת הדגמה)' },
+  { category: 'אלטרנטיבי', visibility: 'members', title: 'רשימת מטפלים משלימים', text: 'רשימה שנאספה על ידי חברי הקהילה, זמינה לאחר התחברות. ההמלצות אישיות ולא תחליף לייעוץ רפואי. (תוכן לחברים בלבד) (הודעת הדגמה)' },
   // ── זכויות ──
   { category: 'זכויות', visibility: 'public', title: 'ייעוץ זכויות חינם', text: 'עורך דין מתנדב ייתן ייעוץ ראשוני בנושאי זכויות, בתיאום מראש. השירות ניתן בדיסקרטיות מלאה וללא עלות. לקביעת תור פנו למזכירות. (הודעת הדגמה)' },
   { category: 'זכויות', visibility: 'public', title: 'מדריך למימוש זכאות דיור', text: 'מדריך מפורט הוכן עבור התושבים ומסביר שלב-אחר-שלב את תהליך מימוש הזכאות. המדריך זמין במזכירות ובאתר. (הודעת הדגמה)' },
-  { category: 'זכויות', visibility: 'public', title: 'עדכון בנוגע למענקים', text: 'התקבל עדכון על מענקים חדשים לתושבים הזכאים. הפרטים המלאים והקריטריונים יפורסמו בימים הקרובים. מומלץ לעקוב אחר ההודעות. (הודעת הדגמה)' },
+  { category: 'זכויות', visibility: 'public', urgency: 'important', title: 'עדכון בנוגע למענקים', text: 'התקבל עדכון על מענקים חדשים לתושבים הזכאים. הפרטים המלאים והקריטריונים יפורסמו בימים הקרובים. מומלץ לעקוב אחר ההודעות. (הודעת הדגמה)' },
   // ── דור צעיר ──
   { category: 'דור צעיר', visibility: 'public', title: 'מסיבת סיום לבוגרי י״ב', text: 'המסיבה תתקיים בשבוע הבא באולם האירועים. פרטים על ההרשמה ולוח הזמנים אצל רכזת הנוער. מחכים לערב חגיגי! (הודעת הדגמה)' },
   { category: 'דור צעיר', visibility: 'public', title: 'טורניר כדורגל לנוער', text: 'טורניר קיץ פתוח לכל הגילאים, נרשמים בזוגות. המשחקים יתקיימו במגרש המרכזי בימי שישי. הרשמה אצל רכז הספורט. (הודעת הדגמה)' },
@@ -280,6 +293,11 @@ const run = async () => {
       title: m.title,
       text: m.text,
       visibility: m.visibility,
+      // Passed through as-is, including `undefined` for the majority that never
+      // name a level: mongoose applies the schema default ('routine') to an
+      // absent key, so the seed states only the exceptions rather than repeating
+      // the default two dozen times.
+      urgency: m.urgency,
       categoryId: catIdByTitle[m.category],
       senderId: String(createdUsers[0]._id),
     })),
@@ -300,6 +318,11 @@ const run = async () => {
 
   const publicCount = messages.filter((m) => m.visibility === 'public').length;
   console.log(`messages: ${createdMessages.length} (${publicCount} public, ${createdMessages.length - publicCount} members-only)`);
+  // Counted from the seeded array rather than hard-coded, so this line cannot
+  // drift from the data the way a written-down total does.
+  const urgent = messages.filter((m) => m.urgency === 'urgent').length;
+  const important = messages.filter((m) => m.urgency === 'important').length;
+  console.log(`urgency: ${urgent} urgent, ${important} important, ${messages.length - urgent - important} routine`);
 
   await mongoose.connection.close();
 

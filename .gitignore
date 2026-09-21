@@ -15,6 +15,13 @@ prod.env
 *.p12
 *credentials*.json
 id_rsa
+# `token.json` is the name every OAuth helper and CLI writes its refresh token
+# to, and it does not match `*credentials*.json`. The admin repo has carried this
+# line all along; this repo and the front did not, so of the three repos that
+# ship together only one was covered. Verified with a real decoy file on disk
+# (`git check-ignore -v token.json`), not against a pattern — nothing of the sort
+# exists in this tree, and the point is that it can no longer arrive by accident.
+token*.json
 
 # misc
 .DS_Store

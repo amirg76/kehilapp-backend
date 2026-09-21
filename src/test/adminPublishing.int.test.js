@@ -1,7 +1,7 @@
 /**
  * Admin publishing (integration).
  *
- * Two contracts live here:
+ * Three contracts live here:
  *
  *   - message bodies are capped at messageConstants.textMaxLength, and every
  *     message has an author taken from the token — never from the request body;
@@ -9,7 +9,10 @@
  *     an admin act. A non-admin who EXPLICITLY asks for a tier they may not set
  *     gets a 403 — never a 200 over a silently downgraded message. Omitting the
  *     field is still fine and yields 'public' on create, no change on update,
- *     which is what the resident UI does: it never sends the field.
+ *     which is what the resident UI does: it never sends the field;
+ *   - `urgency` follows exactly the same rule, and is asserted separately rather
+ *     than assumed to follow: raising a notice above 'routine' is an admin act,
+ *     and the two contracts are enforced by two different pairs of helpers.
  *
  * Posts are plain JSON: POST/PATCH /api/messages carry upload.single('file'),
  * but multer passes a non-multipart request straight through to express.json.
@@ -335,5 +338,126 @@ describe('visibility on update', () => {
     const saved = await Message.findById(created.body._id).lean();
     expect(saved.title).toBe('owner retitled');
     expect(saved.visibility).toBe('members');
+  });
+});
+
+describe('urgency on create', () => {
+  // Same contract as visibility, asserted separately on purpose: the two are
+  // enforced by two pairs of helpers, and a change that fixed one while dropping
+  // the other would leave the visibility suite green.
+  it('lets an admin publish an urgent message', async () => {
+    const token = await loginAs(ADMIN_EMAIL);
+    const res = await createAs(token, {
+      categoryId: 'cat-1',
+      title: 'sagur hakvish',
+      urgency: 'urgent',
+    });
+
+    expect(res.status).toBe(200);
+    const saved = await Message.findOne({ title: 'sagur hakvish' }).lean();
+    expect(saved.urgency).toBe('urgent');
+  });
+
+  it('refuses a member asking for urgent with 403', async () => {
+    const token = await loginAs(MEMBER_EMAIL);
+    const res = await createAs(token, {
+      categoryId: 'cat-1',
+      title: 'member urgent',
+      urgency: 'urgent',
+    });
+
+    // Never a silent downgrade to routine: the caller asked for something the
+    // server did not do, and a 200 would not say so.
+    expect(res.status).toBe(403);
+    expect(await Message.countDocuments()).toBe(0);
+  });
+
+  it('refuses a member asking for important with 403', async () => {
+    const token = await loginAs(MEMBER_EMAIL);
+    const res = await createAs(token, { categoryId: 'cat-1', title: 'member important', urgency: 'important' });
+
+    expect(res.status).toBe(403);
+    expect(await Message.countDocuments()).toBe(0);
+  });
+
+  it('lets a member ask explicitly for routine', async () => {
+    const token = await loginAs(MEMBER_EMAIL);
+    const res = await createAs(token, { categoryId: 'cat-1', title: 'explicit routine', urgency: 'routine' });
+
+    expect(res.status).toBe(200);
+    const saved = await Message.findOne({ title: 'explicit routine' }).lean();
+    expect(saved.urgency).toBe('routine');
+  });
+
+  it('defaults to routine when urgency is omitted', async () => {
+    const token = await loginAs(MEMBER_EMAIL);
+    const res = await createAs(token, { categoryId: 'cat-1', title: 'no urgency asked' });
+
+    expect(res.status).toBe(200);
+    const saved = await Message.findOne({ title: 'no urgency asked' }).lean();
+    expect(saved.urgency).toBe('routine');
+  });
+
+  it('rejects an unknown urgency value with 400', async () => {
+    const token = await loginAs(ADMIN_EMAIL);
+    const res = await createAs(token, { categoryId: 'cat-1', title: 'bad urgency', urgency: 'critical' });
+
+    expect(res.status).toBe(400);
+    expect(await Message.countDocuments()).toBe(0);
+  });
+});
+
+describe('urgency on update', () => {
+  it('refuses a member raising their own message to urgent with 403', async () => {
+    const token = await loginAs(MEMBER_EMAIL);
+    const created = await createAs(token, { categoryId: 'cat-1', title: 'mine to keep calm' });
+    expect(created.status).toBe(200);
+
+    const res = await request(app)
+      .patch(`/api/messages/${created.body._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ categoryId: 'cat-1', title: 'mine to keep calm', urgency: 'urgent' });
+
+    expect(res.status).toBe(403);
+    const saved = await Message.findById(created.body._id).lean();
+    expect(saved.urgency).toBe('routine');
+  });
+
+  // As with visibility, even an explicit 'routine' is refused on update: the
+  // caller may not be the one who raised it, so honouring it is a downgrade.
+  it('refuses a member sending an explicit routine on update with 403', async () => {
+    const token = await loginAs(MEMBER_EMAIL);
+    const created = await createAs(token, { categoryId: 'cat-1', title: 'already routine' });
+    expect(created.status).toBe(200);
+
+    const res = await request(app)
+      .patch(`/api/messages/${created.body._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ categoryId: 'cat-1', title: 'already routine', urgency: 'routine' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('leaves the stored level alone when the non-admin owner edits only the title', async () => {
+    const memberToken = await loginAs(MEMBER_EMAIL);
+    const created = await createAs(memberToken, { categoryId: 'cat-1', title: 'owned by member' });
+    expect(created.status).toBe(200);
+
+    const adminToken = await loginAs(ADMIN_EMAIL);
+    const raised = await request(app)
+      .patch(`/api/messages/${created.body._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ categoryId: 'cat-1', title: 'owned by member', urgency: 'urgent' });
+    expect(raised.status).toBe(200);
+
+    const res = await request(app)
+      .patch(`/api/messages/${created.body._id}`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ categoryId: 'cat-1', title: 'owner retitled' });
+
+    expect(res.status).toBe(200);
+    const saved = await Message.findById(created.body._id).lean();
+    expect(saved.title).toBe('owner retitled');
+    expect(saved.urgency).toBe('urgent');
   });
 });
