@@ -126,11 +126,25 @@ const textBody = (link) =>
     'אם לא נרשמת לקהילאפ, אפשר להתעלם מהודעה זו.',
   ].join('\n');
 
+/**
+ * The link as it may appear in the server log.
+ *
+ * In development the full link IS the feature: with no provider configured it is
+ * the only place the link exists, so a developer copies it out of the terminal.
+ *
+ * Anywhere else the token is cut out. This path runs in production whenever the
+ * provider fails, and a log line holding the token lets anyone who can read the
+ * logs — a hosting dashboard, a log shipper, a support engineer — verify that
+ * account. Closing the echo in the response body and leaving the same token in
+ * the log would have moved the hole, not closed it.
+ *
+ * isKnownNonProduction(), not !isProduction(): an environment nobody named
+ * redacts, for the same fail-closed reason as the response-body gate.
+ */
+const linkForLog = (link) => (isKnownNonProduction() ? link : link.replace(/token=[^&]*/, 'token=<redacted>'));
+
 const logTransport = (email, link, reason) => {
-  // One line, human-readable. With no provider configured this is the ONLY place
-  // the link exists, which is what keeps local development working without any
-  // mail infrastructure and without the token crossing the network.
-  logger.info(`[mailer] verification link for ${email}: ${link}${reason ? ` (${reason})` : ''}`);
+  logger.info(`[mailer] verification link for ${email}: ${linkForLog(link)}${reason ? ` (${reason})` : ''}`);
   return { link, provider: 'log', delivered: false };
 };
 

@@ -15,10 +15,11 @@
  * stranger's inbox, or in their hands. So both are asserted here, on the pure
  * functions, in addition to the boot-time refusals in startupEnvironmentGuard.
  */
-import { buildVerificationLink, assertVerificationLinkTarget } from '../services/mailer.js';
+import { buildVerificationLink, assertVerificationLinkTarget, sendVerificationEmail } from '../services/mailer.js';
 import { mayExposeVerificationLink, assertVerificationLinkExposureIsSafe } from '../config/environment.js';
+import logger from '../services/logger.js';
 
-const KEYS = ['APP_BASE_URL', 'EXPOSE_VERIFICATION_LINK', 'NODE_ENV'];
+const KEYS = ['APP_BASE_URL', 'EXPOSE_VERIFICATION_LINK', 'NODE_ENV', 'EMAIL_PROVIDER', 'RESEND_API_KEY'];
 
 let saved;
 
@@ -31,6 +32,64 @@ afterEach(() => {
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];
   }
+  jest.restoreAllMocks();
+});
+
+/**
+ * The server log is the other place a token can leak. The response-body gate
+ * alone would have moved the hole rather than closed it: the log transport runs
+ * in production every time the provider fails, and a log line with the token
+ * lets whoever reads the logs verify that account.
+ */
+describe('the verification link in the server log', () => {
+  // Distinctive and hex-shaped like a real one, so a partial leak is still caught.
+  const TOKEN = 'feedfacecafebeef0123456789abcdef';
+
+  const loggedLine = async () => {
+    const spy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+    await sendVerificationEmail({ email: 'someone@test.example.com', token: TOKEN });
+    const lines = spy.mock.calls.map(([line]) => String(line)).filter((l) => l.includes('[mailer]'));
+    expect(lines).toHaveLength(1);
+    return lines[0];
+  };
+
+  it('keeps the full link in development, where the log is the only place it exists', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.EMAIL_PROVIDER = '';
+
+    expect(await loggedLine()).toContain(`token=${TOKEN}`);
+  });
+
+  it('cuts the token out in production', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.APP_BASE_URL = 'https://kehilapp.example.com';
+    process.env.EMAIL_PROVIDER = '';
+
+    const line = await loggedLine();
+    expect(line).toContain('token=<redacted>');
+    expect(line).not.toContain(TOKEN);
+    // Still useful to an operator: which address, and that a link was due.
+    expect(line).toContain('someone@test.example.com');
+  });
+
+  it('cuts it on the provider-failure path too — the one that actually runs in production', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.APP_BASE_URL = 'https://kehilapp.example.com';
+    // A provider is selected but unusable, so it falls back to the log transport.
+    process.env.EMAIL_PROVIDER = 'resend';
+    delete process.env.RESEND_API_KEY;
+
+    const line = await loggedLine();
+    expect(line).not.toContain(TOKEN);
+    expect(line).toContain('RESEND_API_KEY is unset');
+  });
+
+  it('cuts it for an environment nobody named — fail closed', async () => {
+    process.env.NODE_ENV = 'staging';
+    process.env.EMAIL_PROVIDER = '';
+
+    expect(await loggedLine()).not.toContain(TOKEN);
+  });
 });
 
 describe('buildVerificationLink', () => {

@@ -54,10 +54,14 @@ const env = {
     // A credentialed cross-origin request from anywhere else is refused, so an
     // origin missing here shows up as the admin failing to log in at all.
     'http://localhost:5180,http://localhost:5173,http://localhost:4173,http://localhost:3001,http://localhost:4174',
-  // Same as live-stack.cjs: a local stack must be registerable without a mailbox.
-  // Compared against `undefined` so that an explicit empty value stays empty.
-  EXPOSE_VERIFICATION_LINK:
-    process.env.EXPOSE_VERIFICATION_LINK === undefined ? 'true' : process.env.EXPOSE_VERIFICATION_LINK,
+  // EXPOSE_VERIFICATION_LINK is deliberately NOT turned on here, unlike in
+  // live-stack.cjs. That script is a throwaway in-memory database on one machine.
+  // This one is a real, persistent Atlas database that docs/05-running-locally.md
+  // recommends for a REMOTE demo — and it defaults NODE_ENV to 'development'
+  // (above), so the server's production refusal would not stop it. Defaulted on,
+  // following the docs would put a public server one failed email away from
+  // handing out verification tokens. Configure EMAIL_PROVIDER instead; set the
+  // flag yourself only on a machine nobody else can reach.
   COOKIE_SAMESITE: process.env.COOKIE_SAMESITE || 'lax',
 };
 
