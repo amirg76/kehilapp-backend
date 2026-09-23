@@ -31,6 +31,15 @@ const BASE_ENV = {
   // Port 0 = let the OS pick a free one, so a busy 5001 on the developer's
   // machine cannot turn a passing test into a failing one.
   PORT: '0',
+  // These two are pinned for the same reason PORT is, and it is not hypothetical.
+  // The child inherits this process's environment — where jest.setup.env.cjs turns
+  // the exposure flag ON — and then loads the developer's own .env on top of
+  // whatever is still missing. Left alone, a production case here would be judged
+  // against a flag jest set and a URL that exists on one machine and not in CI.
+  // Set explicitly, both are the same in both places: dotenv does not overwrite a
+  // key that is already present.
+  EXPOSE_VERIFICATION_LINK: '',
+  APP_BASE_URL: 'https://startup-guard.test.example.com',
 };
 
 /** Runs src/index.js to completion. Only safe for cases that are expected to exit. */
@@ -160,5 +169,54 @@ describe('src/index.js refuses to start on a malformed cookie configuration', ()
 
     expect(status).toBe(1);
     expect(stderr).toMatch(/COOKIE_SAMESITE/);
+  });
+});
+
+/**
+ * The two email-verification settings, asserted at the entry point rather than on
+ * the functions alone.
+ *
+ * verificationLinkTarget.test.js already proves the functions throw. What that
+ * cannot prove is that src/index.js CALLS them — a guard that exists and is never
+ * invoked reads exactly like a guard that works, which is how the original hole
+ * survived: the condition looked deliberate and was never exercised.
+ */
+describe('src/index.js refuses to start on an email-verification setting that leaks or misdirects', () => {
+  jest.setTimeout(120000);
+
+  it('refuses the exposure flag in production instead of ignoring it', () => {
+    const { status, stderr } = runEntryPoint({ NODE_ENV: 'prod', EXPOSE_VERIFICATION_LINK: 'true' });
+
+    expect(status).toBe(1);
+    expect(stderr).toMatch(/FATAL/);
+    expect(stderr).toMatch(/EXPOSE_VERIFICATION_LINK/);
+    // The message has to say what the flag DOES, not just that it is refused —
+    // the operator setting it is trying to make registration work.
+    expect(stderr).toMatch(/registers with someone else's address/);
+  });
+
+  it('refuses an unset APP_BASE_URL in production, where every link would point at localhost', () => {
+    const { status, stderr } = runEntryPoint({ NODE_ENV: 'prod', APP_BASE_URL: '' });
+
+    expect(status).toBe(1);
+    expect(stderr).toMatch(/APP_BASE_URL is not set/);
+  });
+
+  it('refuses an APP_BASE_URL that is not an absolute origin', () => {
+    const { status, stderr } = runEntryPoint({ NODE_ENV: 'prod', APP_BASE_URL: 'kehilapp.example.com' });
+
+    expect(status).toBe(1);
+    expect(stderr).toMatch(/absolute origin/);
+  });
+
+  it('starts in production once both are set correctly', async () => {
+    const { status, stderr } = await startEntryPoint({
+      NODE_ENV: 'prod',
+      APP_BASE_URL: 'https://kehilapp.example.com',
+      EXPOSE_VERIFICATION_LINK: '',
+    });
+
+    expect(stderr).not.toMatch(/FATAL/);
+    expect(status).toBeNull(); // null = it had to be killed, i.e. it never exited
   });
 });
