@@ -54,6 +54,10 @@ const env = {
     // A credentialed cross-origin request from anywhere else is refused, so an
     // origin missing here shows up as the admin failing to log in at all.
     'http://localhost:5180,http://localhost:5173,http://localhost:4173,http://localhost:3001,http://localhost:4174',
+  // Same as live-stack.cjs: a local stack must be registerable without a mailbox.
+  // Compared against `undefined` so that an explicit empty value stays empty.
+  EXPOSE_VERIFICATION_LINK:
+    process.env.EXPOSE_VERIFICATION_LINK === undefined ? 'true' : process.env.EXPOSE_VERIFICATION_LINK,
   COOKIE_SAMESITE: process.env.COOKIE_SAMESITE || 'lax',
 };
 

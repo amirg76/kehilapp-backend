@@ -76,3 +76,52 @@ export const assertKnownEnvironment = () => {
       `Set NODE_ENV to one of: ${ACCEPTED_NODE_ENV_VALUES.join(', ')}.`,
   );
 };
+
+/** The opt-in that lets a verification token travel in an API response body. */
+const VERIFICATION_LINK_EXPOSURE_FLAG = 'EXPOSE_VERIFICATION_LINK';
+
+/**
+ * May this server put a raw verification token in an API response body?
+ *
+ * WHAT THIS REPLACES, AND WHY. The answer used to be "whenever no real mail was
+ * delivered" — and since the default transport delivers nothing, that resolved to
+ * "always". Registering with someone else's address therefore handed the caller
+ * the token that verifies that address. The condition was never a decision
+ * anybody made; it was a development convenience that nothing turned off.
+ *
+ * So it is now TWO explicit conditions, and both must hold:
+ *  - `isKnownNonProduction()`, not `!isProduction()` — an unrecognised or missing
+ *    NODE_ENV answers false, so the unconfigured deployment fails CLOSED. (That
+ *    state cannot reach here anyway while assertKnownEnvironment() runs at boot,
+ *    but this must not depend on another guard staying in place.)
+ *  - the operator set the flag, by name, to the literal string 'true'.
+ *
+ * The link is written to the server log on every path regardless, so a developer
+ * who sets neither can still copy it out of the terminal. Nothing about this gate
+ * blocks local work; it only decides what crosses the network to a stranger.
+ */
+export const mayExposeVerificationLink = () =>
+  isKnownNonProduction() && process.env[VERIFICATION_LINK_EXPOSURE_FLAG] === 'true';
+
+/**
+ * Refuses to boot when the exposure flag is set in an environment that is not a
+ * known non-production one. Throws — the caller decides how to die.
+ *
+ * WHY A HARD STOP RATHER THAN JUST IGNORING THE FLAG. mayExposeVerificationLink()
+ * already fails closed, so a production server with the flag set is safe — and
+ * silently not doing what its own configuration says. The realistic path back to
+ * the original hole is an operator who finds that demo registration "does not
+ * work", sets this flag, sees no change, and keeps escalating until something
+ * gives. Refusing to boot answers that operator in one line instead of letting
+ * them hunt.
+ */
+export const assertVerificationLinkExposureIsSafe = () => {
+  if (process.env[VERIFICATION_LINK_EXPOSURE_FLAG] !== 'true') return;
+  if (isKnownNonProduction()) return;
+  throw new Error(
+    `${VERIFICATION_LINK_EXPOSURE_FLAG}=true is a development-only convenience and NODE_ENV=${nodeEnvName()} is not a ` +
+      `development environment. It makes POST /api/auth/register and /api/auth/resend-verification return the raw ` +
+      `email-verification token in the response body, so anyone who registers with someone else's address receives ` +
+      `the token that verifies it. Unset it, and configure EMAIL_PROVIDER so the link is emailed instead.`,
+  );
+};

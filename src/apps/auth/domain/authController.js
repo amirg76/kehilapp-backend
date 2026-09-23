@@ -13,6 +13,7 @@ import {
 import { getJwtSecret } from '../../../config/env.js';
 import crypto from 'crypto';
 import { sendVerificationEmail } from '../../../services/mailer.js';
+import { mayExposeVerificationLink } from '../../../config/environment.js';
 import { AUTH_COOKIE, CSRF_COOKIE, authCookieOptions, csrfCookieOptions } from '../../../config/cookies.js';
 
 const { sign } = pkg;
@@ -172,9 +173,6 @@ export const register = async (req, res) => {
 
   const mail = await sendVerificationEmail({ email: user.email, token });
 
-  // 201 Created. Never echo anything secret in production; only when the mailer
-  // merely logged the link (no real provider — dev/test) do we hand the token
-  // and link back so a local client or the test suite can complete the flow.
   const body = {
     id: user.id,
     email: user.email,
@@ -186,8 +184,20 @@ export const register = async (req, res) => {
     // the same field from the same source and none of the three can drift if the
     // schema default or createUserInDb ever changes.
     approved: user.approved,
+    // Whether a message actually left the building. The client used to infer this
+    // from the presence of the token and, with no provider configured, always
+    // concluded "sent" — so a failed send and a successful one both rendered
+    // "check your inbox" for an inbox nothing was sent to. A boolean says it
+    // outright and reveals nothing.
+    emailDelivered: mail.delivered === true,
   };
-  if (!mail.delivered) {
+  // The raw token travels in the response body ONLY under the two explicit
+  // conditions in mayExposeVerificationLink(). It used to travel whenever no real
+  // mail was delivered, which — since the default transport delivers nothing —
+  // meant always: registering with someone else's address returned the token that
+  // verifies that address. `!mail.delivered` stays as a third condition because
+  // echoing a token that was genuinely emailed is pointless as well as unsafe.
+  if (!mail.delivered && mayExposeVerificationLink()) {
     body.verificationToken = mail.token;
     body.verificationLink = mail.link;
   }
@@ -239,12 +249,21 @@ export const resendVerification = async (req, res) => {
     await user.save();
 
     const mail = await sendVerificationEmail({ email: user.email, token });
-    // Same dev/test convenience as register: only exposed when nothing was
-    // actually delivered by a real provider.
-    if (!mail.delivered) devHint = { verificationToken: mail.token, verificationLink: mail.link };
+    // Same two explicit conditions as register. This endpoint was the worse of
+    // the two leaks: it takes an address and nothing else, so it handed out a
+    // verification token for any unverified account without even registering.
+    if (!mail.delivered && mayExposeVerificationLink()) {
+      devHint = { verificationToken: mail.token, verificationLink: mail.link };
+    }
   }
 
   // Always 200, always the same message.
+  //
+  // NOTE THE ASYMMETRY WITH register(): that endpoint reports `emailDelivered`,
+  // and this one deliberately does not. Delivery can only be attempted for an
+  // address that exists and is unverified, so the boolean would answer precisely
+  // the question this uniform response exists to refuse. A caller who gets no
+  // mail retries; a caller who gets an oracle enumerates the member list.
   return res.status(200).json({
     ok: true,
     message: 'If the address exists and is unverified, a verification email has been sent.',

@@ -52,6 +52,19 @@ const { spawn } = require('child_process');
     ALLOWED_ORIGINS:
       process.env.ALLOWED_ORIGINS ||
       'http://localhost:5180,http://localhost:5173,http://localhost:4173,http://localhost:3001,http://localhost:4174',
+    // Registration on a throwaway stack has to be completable without a mailbox,
+    // so the verification link comes back in the response here. The server refuses
+    // this flag outside a development environment; see config/environment.js.
+    //
+    // Tested against `undefined`, not falsy: `EXPOSE_VERIFICATION_LINK= node
+    // scripts/live-stack.cjs` is how you watch the closed-gate behaviour locally,
+    // and `||` would have quietly turned that back on.
+    EXPOSE_VERIFICATION_LINK:
+      process.env.EXPOSE_VERIFICATION_LINK === undefined ? 'true' : process.env.EXPOSE_VERIFICATION_LINK,
+    // APP_BASE_URL is deliberately NOT set here. It is the resident app's origin,
+    // the mailer already defaults it to :5180 for development, and pinning it in
+    // this script would override the .env of anyone pointing a local server at a
+    // deployed front end.
   };
 
   // Seed, then start the server.
