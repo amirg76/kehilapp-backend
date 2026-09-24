@@ -117,22 +117,27 @@ const describeRun = ({ status, how, elapsedMs, stdout, stderr }) =>
   ].join('\n');
 
 /**
- * Asserts a started server got past the guard and announced it was listening.
- * Throws with the full run description instead of a bare match failure.
+ * null when a started server got past the guard and announced it was listening;
+ * otherwise the full run description.
+ *
+ * Returned rather than thrown, and asserted with `expect(...).toBeNull()` at the
+ * call site: Jest then prints the whole description as the received value, and
+ * the test still contains an `expect` — CI lints with jest/expect-expect at
+ * --max-warnings=0, and a helper that throws is invisible to that rule.
  */
-const expectListening = (run) => {
-  if (!/FATAL/.test(run.stderr) && /server listening on port/.test(run.stdout)) return;
-  throw new Error(`expected the server to start and report "server listening on port".\n${describeRun(run)}`);
-};
+const listeningProblem = (run) =>
+  !/FATAL/.test(run.stderr) && /server listening on port/.test(run.stdout)
+    ? null
+    : `expected the server to start and report "server listening on port".\n${describeRun(run)}`;
 
 /**
- * Asserts a started server was still alive when the window closed. Used where the
- * "listening" line is not available to look for.
+ * null when a started server was still alive when the window closed; otherwise
+ * the full run description. Used where the "listening" line is not available.
  */
-const expectStillRunning = (run) => {
-  if (!/FATAL/.test(run.stderr) && run.status === null) return;
-  throw new Error(`expected the server to still be running when the window closed.\n${describeRun(run)}`);
-};
+const stillRunningProblem = (run) =>
+  !/FATAL/.test(run.stderr) && run.status === null
+    ? null
+    : `expected the server to still be running when the window closed.\n${describeRun(run)}`;
 
 describe('src/index.js refuses to start on an environment it cannot name', () => {
   jest.setTimeout(120000);
@@ -171,7 +176,7 @@ describe('src/index.js refuses to start on an environment it cannot name', () =>
   });
 
   it.each(['local', 'dev', 'development', 'production', 'prod'])('starts for the accepted value %p', async (value) => {
-    expectListening(await startEntryPoint({ NODE_ENV: value }));
+    expect(listeningProblem(await startEntryPoint({ NODE_ENV: value }))).toBeNull();
   });
 
   it("starts for the accepted value 'test' too", async () => {
@@ -181,7 +186,7 @@ describe('src/index.js refuses to start on an environment it cannot name', () =>
     // here. What is observable instead is that the process is STILL RUNNING at the
     // end of the window — the guard refuses within milliseconds, so anything still
     // alive six seconds later got past it.
-    expectStillRunning(await startEntryPoint({ NODE_ENV: 'test' }));
+    expect(stillRunningProblem(await startEntryPoint({ NODE_ENV: 'test' }))).toBeNull();
   });
 });
 
@@ -243,12 +248,12 @@ describe('src/index.js refuses to start on an email-verification setting that le
   });
 
   it('starts in production once both are set correctly', async () => {
-    expectStillRunning(
-      await startEntryPoint({
-        NODE_ENV: 'prod',
-        APP_BASE_URL: 'https://kehilapp.example.com',
-        EXPOSE_VERIFICATION_LINK: '',
-      }),
-    );
+    const run = await startEntryPoint({
+      NODE_ENV: 'prod',
+      APP_BASE_URL: 'https://kehilapp.example.com',
+      EXPOSE_VERIFICATION_LINK: '',
+    });
+
+    expect(stillRunningProblem(run)).toBeNull();
   });
 });
