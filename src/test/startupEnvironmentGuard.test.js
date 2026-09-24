@@ -65,35 +65,74 @@ const startEntryPoint = (env) =>
       env: { ...process.env, ...BASE_ENV, ...env },
     });
 
+    const startedAt = Date.now();
     let stdout = '';
     let stderr = '';
     let settled = false;
     let timer = null;
 
-    const finish = (status) => {
+    // `how` and `elapsedMs` exist for the failure message, not for the assertions.
+    // This helper's cases once failed a single time in fourteen local runs with
+    // nothing but "expected ... to match" to go on, and could not be reproduced.
+    const finish = (status, how) => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
       child.kill();
-      resolve({ status, stdout, stderr });
+      resolve({ status, stdout, stderr, how, elapsedMs: Date.now() - startedAt });
     };
 
     child.stdout.on('data', (chunk) => {
       stdout += chunk;
       // The server prints this from inside httpServer.listen's callback, which
       // means it got past the guard and bound a port.
-      if (/server listening on port/.test(stdout)) finish(null);
+      if (/server listening on port/.test(stdout)) finish(null, 'listening');
     });
     child.stderr.on('data', (chunk) => {
       stderr += chunk;
     });
-    child.on('exit', (code) => finish(code));
+    child.on('exit', (code) => finish(code, 'exited'));
 
     // The guard fires within milliseconds, so a process still alive at the end of
     // this window has passed it. (The database is not running here; mongoose takes
     // far longer than this to give up, which is why the window is short.)
-    timer = setTimeout(() => finish(null), 6000);
+    timer = setTimeout(() => finish(null, 'window elapsed'), 6000);
   });
+
+/**
+ * Everything the child said and how it ended, for a failure message.
+ *
+ * Jest's own message for `expect(stdout).toMatch(...)` shows the received string
+ * and nothing else — not whether the process died, was still booting when the
+ * window closed, or printed its reason on the other stream. Those are three
+ * different bugs, and the difference is all in what this prints.
+ */
+const describeRun = ({ status, how, elapsedMs, stdout, stderr }) =>
+  [
+    `ended: ${how} after ${elapsedMs} ms (exit status: ${status === null ? 'none — killed by the test' : status})`,
+    '--- child stdout ---',
+    stdout.trim() || '(empty)',
+    '--- child stderr ---',
+    stderr.trim() || '(empty)',
+  ].join('\n');
+
+/**
+ * Asserts a started server got past the guard and announced it was listening.
+ * Throws with the full run description instead of a bare match failure.
+ */
+const expectListening = (run) => {
+  if (!/FATAL/.test(run.stderr) && /server listening on port/.test(run.stdout)) return;
+  throw new Error(`expected the server to start and report "server listening on port".\n${describeRun(run)}`);
+};
+
+/**
+ * Asserts a started server was still alive when the window closed. Used where the
+ * "listening" line is not available to look for.
+ */
+const expectStillRunning = (run) => {
+  if (!/FATAL/.test(run.stderr) && run.status === null) return;
+  throw new Error(`expected the server to still be running when the window closed.\n${describeRun(run)}`);
+};
 
 describe('src/index.js refuses to start on an environment it cannot name', () => {
   jest.setTimeout(120000);
@@ -132,10 +171,7 @@ describe('src/index.js refuses to start on an environment it cannot name', () =>
   });
 
   it.each(['local', 'dev', 'development', 'production', 'prod'])('starts for the accepted value %p', async (value) => {
-    const { stdout, stderr } = await startEntryPoint({ NODE_ENV: value });
-
-    expect(stderr).not.toMatch(/FATAL/);
-    expect(stdout).toMatch(/server listening on port/);
+    expectListening(await startEntryPoint({ NODE_ENV: value }));
   });
 
   it("starts for the accepted value 'test' too", async () => {
@@ -145,10 +181,7 @@ describe('src/index.js refuses to start on an environment it cannot name', () =>
     // here. What is observable instead is that the process is STILL RUNNING at the
     // end of the window — the guard refuses within milliseconds, so anything still
     // alive six seconds later got past it.
-    const { status, stderr } = await startEntryPoint({ NODE_ENV: 'test' });
-
-    expect(stderr).not.toMatch(/FATAL/);
-    expect(status).toBeNull(); // null = it had to be killed, i.e. it never exited
+    expectStillRunning(await startEntryPoint({ NODE_ENV: 'test' }));
   });
 });
 
@@ -210,13 +243,12 @@ describe('src/index.js refuses to start on an email-verification setting that le
   });
 
   it('starts in production once both are set correctly', async () => {
-    const { status, stderr } = await startEntryPoint({
-      NODE_ENV: 'prod',
-      APP_BASE_URL: 'https://kehilapp.example.com',
-      EXPOSE_VERIFICATION_LINK: '',
-    });
-
-    expect(stderr).not.toMatch(/FATAL/);
-    expect(status).toBeNull(); // null = it had to be killed, i.e. it never exited
+    expectStillRunning(
+      await startEntryPoint({
+        NODE_ENV: 'prod',
+        APP_BASE_URL: 'https://kehilapp.example.com',
+        EXPOSE_VERIFICATION_LINK: '',
+      }),
+    );
   });
 });
