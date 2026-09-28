@@ -125,3 +125,46 @@ export const assertVerificationLinkExposureIsSafe = () => {
       `the token that verifies it. Unset it, and configure EMAIL_PROVIDER so the link is emailed instead.`,
   );
 };
+
+/**
+ * How many proxies sit between the internet and this process — the value for
+ * Express's `trust proxy`. TRUST_PROXY_HOPS, default 1.
+ *
+ * WHY A SETTING AND NOT A CONSTANT. Every rate limiter keys on `req.ip`, and
+ * `req.ip` is whichever X-Forwarded-For entry sits just outside the trusted hops.
+ * Trust too FEW and every client resolves to the last proxy's address: the login
+ * limiter becomes one bucket for the whole internet, and ten wrong passwords
+ * from anyone lock everyone out for fifteen minutes. Trust too MANY and a caller
+ * can forge the header and dodge the limit. The right number is a fact about
+ * the deployment, not about the code: one hop behind Cloudflare alone, two
+ * behind the Caddy → nginx pair in kehilapp-devops. So it is configured, and
+ * the production compose file states it next to the topology that makes it true.
+ *
+ * Never `true`: that trusts every hop, which is the forgery case above.
+ */
+const TRUST_PROXY_VAR = 'TRUST_PROXY_HOPS';
+
+const rawTrustProxyHops = () => (process.env[TRUST_PROXY_VAR] || '').trim();
+
+export const trustProxyHops = () => {
+  const raw = rawTrustProxyHops();
+  return raw === '' ? 1 : Number(raw);
+};
+
+/**
+ * Refuses to boot on a TRUST_PROXY_HOPS that is not a small whole number.
+ * Throws — the caller decides how to die.
+ *
+ * `Number('true')` is NaN and `Number('')` is 0, so without this a typo would
+ * be resolved by Express in whichever direction it resolves NaN — silently.
+ */
+export const assertTrustProxyHops = () => {
+  const raw = rawTrustProxyHops();
+  if (raw === '') return;
+  if (!/^\d{1,2}$/.test(raw)) {
+    throw new Error(
+      `${TRUST_PROXY_VAR}=${raw} is not a whole number of proxies. It is the count of proxies between the internet ` +
+        `and this server (1 behind Cloudflare alone, 2 behind the Caddy → nginx pair in kehilapp-devops). Never "true".`,
+    );
+  }
+};
