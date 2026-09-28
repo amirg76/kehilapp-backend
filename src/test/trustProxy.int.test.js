@@ -63,6 +63,29 @@ describe('login limiter behind Caddy → nginx (two hops)', () => {
     expect((await failLogin('198.51.100.20')).status).toBe(401);
   });
 
+  it('with 2 trusted hops a client cannot escape its bucket by padding the header', async () => {
+    app.set('trust proxy', 2);
+
+    // The attacker sends X-Forwarded-For with invented addresses on the LEFT;
+    // Caddy and nginx append the real ones on the right. Trusting exactly two
+    // hops means the resolver stops at the real client and never reads the
+    // padding — so the padded requests land in the same bucket as the plain
+    // ones. The header shape below is what the backend would actually receive.
+    const forged = (fake) => `${fake}, 192.0.2.77, ${CADDY}`;
+    const failForged = (fake) =>
+      request(app)
+        .post('/api/auth/login')
+        .set('X-Forwarded-For', forged(fake))
+        .send({ email: 'nobody@test.example.com', password: 'wrong-password-1' });
+
+    for (let i = 0; i < 10; i += 1) {
+      expect((await failForged(`10.9.9.${i}`)).status).toBe(401);
+    }
+    // Eleventh failure from the same real client, however the padding varies.
+    expect((await failForged('10.9.9.200')).status).toBe(429);
+    expect((await failLogin('192.0.2.77')).status).toBe(429);
+  });
+
   it('with 1 trusted hop every client shares one bucket — the production bug, kept as proof', async () => {
     app.set('trust proxy', 1);
 

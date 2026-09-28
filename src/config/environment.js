@@ -161,10 +161,15 @@ export const trustProxyHops = () => {
 export const assertTrustProxyHops = () => {
   const raw = rawTrustProxyHops();
   if (raw === '') return;
-  if (!/^\d{1,2}$/.test(raw)) {
+  // 0–5. A real chain has one or two proxies; anything past a handful is a
+  // typo (20 for 2), and a value that trusts more hops than exist lets a caller
+  // choose their own address by padding X-Forwarded-For — which is the forgery
+  // that `true` would allow, reached by accident. Merge-gate finding.
+  if (!/^[0-5]$/.test(raw)) {
     throw new Error(
-      `${TRUST_PROXY_VAR}=${raw} is not a whole number of proxies. It is the count of proxies between the internet ` +
-        `and this server (1 behind Cloudflare alone, 2 behind the Caddy → nginx pair in kehilapp-devops). Never "true".`,
+      `${TRUST_PROXY_VAR}=${raw} is not a whole number of proxies from 0 to 5. It is the count of proxies between ` +
+        `the internet and this server (1 behind Cloudflare alone, 2 behind the Caddy → nginx pair in ` +
+        `kehilapp-devops). Trusting more hops than exist lets a caller forge their address. Never "true".`,
     );
   }
 };
