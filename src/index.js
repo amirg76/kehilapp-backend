@@ -6,7 +6,11 @@ import app from './app.js';
 import logger from './services/logger.js';
 import AppError from './errors/AppError.js';
 import errorManagement from './errors/utils/errorManagement.js';
-import { assertKnownEnvironment, assertVerificationLinkExposureIsSafe } from './config/environment.js';
+import {
+  assertKnownEnvironment,
+  assertVerificationLinkExposureIsSafe,
+  assertTrustProxyHops,
+} from './config/environment.js';
 import { assertCookieConfig } from './config/cookies.js';
 import { assertVerificationLinkTarget } from './services/mailer.js';
 
@@ -50,6 +54,7 @@ try {
   // flag hands the token to whoever called the endpoint.
   assertVerificationLinkExposureIsSafe();
   assertVerificationLinkTarget();
+  assertTrustProxyHops();
 } catch (err) {
   // console, not the logger: the logger's own format is chosen by NODE_ENV, and
   // this message must survive NODE_ENV being the thing that is wrong.

@@ -11,6 +11,7 @@ import corsMiddleware from './middlewares/cors.js';
 import csrfProtection from './middlewares/csrf.js';
 import logger, { forLog } from './services/logger.js';
 import { apiLimiter, loginLimiter, registerLimiter } from './middlewares/rateLimit.js';
+import { trustProxyHops } from './config/environment.js';
 
 //import routes
 import messagesRoutes from './apps/messages/entryPoints/messageRoutes.js';
@@ -21,11 +22,13 @@ import healthRoutes from './apps/health/healthRoutes.js';
 
 const app = express();
 
-// Behind Cloudflare / a load balancer the client IP arrives in X-Forwarded-For.
-// Without this the rate limiter sees one proxy IP for everyone and throttles all
-// users together. `1` trusts exactly one hop — never `true`, which would let a
-// caller spoof the header and dodge the limit entirely.
-app.set('trust proxy', 1);
+// Behind a proxy the client IP arrives in X-Forwarded-For, and every rate
+// limiter keys on it. The number of hops to trust is a fact about the
+// deployment (see trustProxyHops): this used to be a hard-coded 1, which was
+// right behind Cloudflare alone and wrong behind the Caddy → nginx pair the
+// production compose file runs — there, every client resolved to Caddy's
+// address and the login limiter was one shared bucket. Never `true`.
+app.set('trust proxy', trustProxyHops());
 
 // Security headers first, so they are set even on responses that fail later.
 app.use(helmet());
