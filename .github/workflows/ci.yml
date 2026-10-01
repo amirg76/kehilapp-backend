@@ -34,7 +34,7 @@ jobs:
       # to resolve it -- or, worse, scans zero bytes and reports no leaks
       # found, which reads as a pass. A scanner that cannot see history cannot
       # scan history.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -116,7 +116,7 @@ jobs:
               it does. Report only mismatches: changes the description does not
               mention, or claims the diff does not implement.
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
