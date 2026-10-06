@@ -338,14 +338,10 @@ export const deleteMessage = async (req, res) => {
   res.status(200).send(id);
 };
 
-// delete all messages
+// Empties the message collection. Admin-only (see messageRoutes.js); kept for
+// demo resets. Attachments in S3 are NOT removed here — only the documents.
 export const deleteAllMessages = async (req, res) => {
   await deleteAllMessagesInDb();
-
-  // //if there is a file uploaded, delete it
-  // if (message.attachmentKey) {
-  //   await deleteFileFromBucket('messages', message.attachmentKey);
-  // }
 
   res.status(200).send('deleted successfully');
 };

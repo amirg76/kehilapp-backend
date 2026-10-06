@@ -13,7 +13,7 @@ import logger, { forLog } from './services/logger.js';
 import { apiLimiter, loginLimiter, registerLimiter } from './middlewares/rateLimit.js';
 import { trustProxyHops } from './config/environment.js';
 
-//import routes
+// Routers, one per feature module
 import messagesRoutes from './apps/messages/entryPoints/messageRoutes.js';
 import categoriesRoutes from './apps/categories/entryPoints/categoryRoutes.js';
 import usersRoutes from './apps/users/entryPoints/userRoutes.js';
