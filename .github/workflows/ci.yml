@@ -57,6 +57,14 @@ jobs:
       - name: Lint
         run: npx eslint src --max-warnings=0
 
+      # A raw U+202E (right-to-left override) in a source file reverses how the
+      # rest of the line is DISPLAYED without changing how it is PARSED, so a
+      # reviewer reads one thing and the engine runs another ("Trojan Source").
+      # One such character shipped in a test literal here. Fails on any raw
+      # bidi control character in src/ or scripts/; write them as \uXXXX.
+      - name: Raw bidi control characters
+        run: node scripts/no-raw-bidi-check.mjs
+
       # The auth-guard test lives in this suite. A route registered without the
       # auth middleware, and not explicitly allowlisted, fails here.
       - name: Tests
