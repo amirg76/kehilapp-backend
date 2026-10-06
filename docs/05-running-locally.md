@@ -250,7 +250,7 @@ curl -X POST http://localhost:5001/api/auth/login \
 ## הרצת הבדיקות
 
 ```bash
-npm test              # הכל — 220 בדיקות
+npm test              # הכל — 325 בדיקות
 npm run test:unit     # רק המהירות (בלי מסד) — 8 שניות
 npm run test:int      # רק אינטגרציה (עם מסד בזיכרון)
 ```
