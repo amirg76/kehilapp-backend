@@ -16,3 +16,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # Every pinned action in ci.yml and codeql.yml bumps in one PR instead of
+      # five. The first weekly run opened five separate PRs (checkout,
+      # setup-node, gitleaks, codeql, claude-code-action); each needs the same
+      # review -- does the new SHA match the tag -- so they belong together.
+      actions:
+        patterns: ['*']
