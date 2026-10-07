@@ -10,14 +10,14 @@
  * `\u202E` escapes, which this check cannot object to because the file then
  * holds six ASCII characters, not the control character.
  *
- * Scope: src/ and scripts/ (every file, every extension). Hebrew text and other
+ * Scope: src/ and scripts/ (text files by extension; images and other binaries are skipped). Hebrew text and other
  * RTL letters are NOT flagged -- only the invisible control characters below.
  *
  *   node scripts/no-raw-bidi-check.mjs            # exit 0 = clean, 1 = found
  *   node scripts/no-raw-bidi-check.mjs some/dir   # scan other roots instead
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = join(fileURLToPath(import.meta.url), '..', '..');
@@ -44,21 +44,27 @@ const NAMES = {
   0x2069: 'POP DIRECTIONAL ISOLATE',
 };
 
+// Text files only (by extension): an image's bytes can decode to one of these
+// code points by accident, and a binary read as utf8 is noise either way.
+const TEXT_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.json', '.md', '.yml', '.yaml', '.txt', '.html', '.log']);
+
 const walk = (dir, out = []) => {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name === '.git') continue;
     const full = join(dir, name);
     if (statSync(full).isDirectory()) walk(full, out);
-    else out.push(full);
+    else if (TEXT_EXTENSIONS.has(extname(full).toLowerCase())) out.push(full);
   }
   return out;
 };
 
 const findings = [];
 const roots = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_ROOTS;
+let filesScanned = 0;
 
 for (const root of roots) {
   for (const file of walk(join(REPO_ROOT, root))) {
+    filesScanned++;
     const text = readFileSync(file, 'utf8');
     const lines = text.split('\n');
     lines.forEach((line, i) => {
@@ -78,4 +84,9 @@ if (findings.length) {
   process.exit(1);
 }
 
-console.log(`no-raw-bidi-check: clean (${roots.join(', ')})`);
+// A scan of nothing is not a clean scan: a renamed folder must fail loudly.
+if (filesScanned === 0) {
+  console.error('no-raw-bidi-check: scanned 0 files - wrong root?');
+  process.exit(2);
+}
+console.log(`no-raw-bidi-check: clean (${filesScanned} files in ${roots.join(', ')})`);
