@@ -17,7 +17,10 @@ import { AUTH_COOKIE, CSRF_COOKIE, CSRF_HEADER } from '../config/cookies.js';
 import AppError from '../errors/AppError.js';
 import errorManagement from '../errors/utils/errorManagement.js';
 
-const TOKEN = 'a3f1c9d2e4b6a7c8d9e0f1a2b3c4d5e6';
+// Low entropy on purpose: a random-looking hex literal here made gitleaks in
+// CI report a leaked API key (7.10.2026). The compare only needs two equal-
+// length strings; it does not care what they look like.
+const TOKEN = 'ab'.repeat(16);
 
 const fakeRequest = ({ cookieToken, headerToken }) => ({
   method: 'POST',

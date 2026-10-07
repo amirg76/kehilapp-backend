@@ -1,0 +1,6 @@
+# False positives for the gitleaks CI step, one fingerprint per line:
+#   <commit>:<file>:<rule>:<line>
+# A test token in a commit that is already part of this branch's history. The
+# literal was random-looking hex and gitleaks read it as an API key; the file
+# now uses a low-entropy string, but the old commit stays in the PR range.
+6f364fd63fbe6547d0eccf5cc5fca31dee51ee45:src/test/csrfProtection.test.js:generic-api-key:20
