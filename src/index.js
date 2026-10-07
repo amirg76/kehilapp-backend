@@ -1,6 +1,5 @@
 import { createServer } from 'http';
 import 'dotenv/config';
-// import { config } from 'dotenv-flow'; //! replaced with regular dotenv library, bug fix
 import { connectDB } from './services/db.js';
 import app from './app.js';
 import logger from './services/logger.js';
@@ -62,7 +61,6 @@ try {
   process.exit(1);
 }
 
-// config({ path: './config/' }); //! replaced with regular dotenv library, bug fix
 connectDB()
   .then(() => logger.info('DB connected'))
   .catch(() => {

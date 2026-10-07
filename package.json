@@ -1,7 +1,7 @@
 {
-  "name": "kibbutz-web-site-backend",
+  "name": "kehilapp-backend",
   "version": "1.0.0",
-  "description": "Backend Node.js",
+  "description": "REST API for Kehilapp: community notice board for an evacuated kibbutz. Express + MongoDB, cookie session with CSRF double-submit, member approval tiers, AI category suggestions, CI gates that fail on an unguarded route.",
   "main": "index.js",
   "type": "module",
   "config": {

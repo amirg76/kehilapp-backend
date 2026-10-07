@@ -49,7 +49,11 @@ const TARGET_EMAIL = 'persist-test@example.com';
  * (bell) and U+202E (right-to-left override, which visually reverses the rest of
  * the line). The script must not hand either of them to the terminal raw.
  */
-const GARBLED_NAME = 'Ã—Â©Ã—‮';
+// Written with escapes on purpose: the raw characters used to sit in this
+// literal, and a raw U+202E in a source file reverses how the rest of the line
+// is displayed in editors and diffs. scripts/no-raw-bidi-check.mjs now fails CI
+// on any raw bidi control character in src/ or scripts/.
+const GARBLED_NAME = '\u00c3\u2014\u00c2\u00a9\u00c3\u2014\u0097\u0007\u202e';
 
 let demoUri;
 let usersCollection;
@@ -132,7 +136,7 @@ describe('scripts/removeUserByEmail.js — dry run is the default', () => {
     // escape, and the raw control character never reaches the terminal.
     expect(stdout).toContain(`name:  ${JSON.stringify(GARBLED_NAME)}`);
     expect(stdout).toContain('\\u0007');
-    expect(stdout).not.toContain('');
+    expect(stdout).not.toContain('\u0007');
 
     // The contract is the database, not the report.
     expect(await emails()).toEqual(['admin@demo.example.com', 'member@demo.example.com', TARGET_EMAIL].sort());

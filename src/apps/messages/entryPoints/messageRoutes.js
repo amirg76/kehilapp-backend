@@ -96,6 +96,9 @@ router.post(
 router.delete('/:id', auth, requireRole('admin'), deleteMessageValidation, deleteMessage);
 
 // The endpoint that emptied the entire collection for anyone who found the URL.
+// It is now admin-only and exists for demo resets (wipe the board, re-seed).
+// Whether a production deployment should keep it at all is a product decision
+// for the owner; the route-guard test keeps it behind a role check meanwhile.
 router.delete('/', auth, requireRole('admin'), deleteAllMessages);
 
 export default router;

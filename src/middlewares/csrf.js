@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'crypto';
+
 import AppError from '../errors/AppError.js';
 import errorManagement from '../errors/utils/errorManagement.js';
 import { AUTH_COOKIE, CSRF_COOKIE, CSRF_HEADER } from '../config/cookies.js';
@@ -26,8 +28,27 @@ const EXEMPT_PATHS = new Set([
  * X-CSRF-Token header on every mutating request. A cross-site attacker can cause
  * the browser to send the cookies, but cannot READ the CSRF cookie's value (it's
  * on our origin) to put it in the header — so the two won't match and the request
- * is rejected. Constant-time-ish compare; values are random hex of equal length.
+ * is rejected. The two values are compared in constant time (see tokensMatch).
  */
+
+/**
+ * Constant-time comparison of the cookie token and the header token.
+ *
+ * The comment above used to promise a "constant-time-ish compare" while the
+ * code did `cookieToken !== headerToken` — a plain string compare that returns
+ * on the first differing character. The words and the code now match.
+ * `timingSafeEqual` requires equal-length buffers and throws otherwise, so a
+ * length mismatch is answered as "no match" before it is ever called; the
+ * length of a random hex token is not a secret.
+ */
+export const tokensMatch = (a, b) => {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+};
+
 const csrfProtection = (req, res, next) => {
   if (SAFE_METHODS.has(req.method) || EXEMPT_PATHS.has(req.path)) {
     return next();
@@ -57,7 +78,7 @@ const csrfProtection = (req, res, next) => {
   const cookieToken = req.cookies?.[CSRF_COOKIE];
   const headerToken = req.get(CSRF_HEADER);
 
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+  if (!cookieToken || !headerToken || !tokensMatch(cookieToken, headerToken)) {
     return next(
       new AppError(
         errorManagement.commonErrors.authorizationError.message,
