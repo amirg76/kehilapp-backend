@@ -122,18 +122,54 @@ describe('buildS3ClientConfig — an S3-compatible endpoint (Cloudflare R2)', ()
     ).toThrow('BUCKET_ENDPOINT is not a valid URL');
   });
 
-  it('refuses a plain-http endpoint in production, but allows it elsewhere (local MinIO)', () => {
-    const http = {
-      endpoint: 'http://minio.internal:9000',
+  const plainHttp = {
+    endpoint: 'http://minio.internal:9000',
+    region: 'auto',
+    accessKeyId: ACCESS_KEY_ID,
+    secretAccessKey: SECRET_ACCESS_KEY,
+  };
+
+  it('refuses a plain-http endpoint unless plain http is explicitly allowed (local MinIO)', () => {
+    expect(() => buildS3ClientConfig({ ...plainHttp, allowPlainHttp: false })).toThrow(
+      'BUCKET_ENDPOINT must use https outside a known development environment',
+    );
+    expect(buildS3ClientConfig({ ...plainHttp, allowPlainHttp: true }).endpoint).toBe('http://minio.internal:9000');
+  });
+
+  describe('the default for allowPlainHttp comes from config/environment.js, not a hand-rolled NODE_ENV test', () => {
+    const original = process.env.NODE_ENV;
+    afterEach(() => {
+      process.env.NODE_ENV = original;
+    });
+
+    // `npm run prod` sets NODE_ENV=prod — the spelling a `=== 'production'` check
+    // misses (merge gate, 29.10). Unset/unknown values must fail closed too.
+    it.each(['production', 'prod', 'Production', ' PROD ', 'staging', ''])(
+      'refuses plain http when NODE_ENV=%j',
+      (v) => {
+        process.env.NODE_ENV = v;
+        expect(() => buildS3ClientConfig(plainHttp)).toThrow('must use https');
+      },
+    );
+
+    it.each(['development', 'dev', 'local', 'test'])('allows plain http when NODE_ENV=%j', (v) => {
+      process.env.NODE_ENV = v;
+      expect(buildS3ClientConfig(plainHttp).endpoint).toBe('http://minio.internal:9000');
+    });
+  });
+
+  it('refuses a non-http(s) scheme and a URL that carries credentials', () => {
+    const base = {
       region: 'auto',
       accessKeyId: ACCESS_KEY_ID,
       secretAccessKey: SECRET_ACCESS_KEY,
+      allowPlainHttp: true,
     };
-
-    expect(() => buildS3ClientConfig({ ...http, nodeEnv: 'production' })).toThrow(
-      'BUCKET_ENDPOINT must use https in production',
+    expect(() => buildS3ClientConfig({ ...base, endpoint: 'localhost:9000' })).toThrow('must be an http(s) URL');
+    expect(() => buildS3ClientConfig({ ...base, endpoint: 'ftp://x.example' })).toThrow('must be an http(s) URL');
+    expect(() => buildS3ClientConfig({ ...base, endpoint: 'https://user:pw@x.example' })).toThrow(
+      'must not carry credentials',
     );
-    expect(buildS3ClientConfig({ ...http, nodeEnv: 'development' }).endpoint).toBe('http://minio.internal:9000');
   });
 });
 

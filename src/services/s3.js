@@ -8,6 +8,7 @@ import {
   getBucketSecretAccessKey,
   getBucketEndpoint,
 } from '../config/env.js';
+import { isKnownNonProduction } from '../config/environment.js';
 
 // Builds the S3Client options. Pure, so both shapes can be asserted without a
 // network. With no endpoint this is exactly the AWS config used before: the SDK
@@ -18,14 +19,17 @@ import {
 //
 // The endpoint is validated here, at startup, rather than on the first upload:
 // a malformed value would otherwise surface as "Invalid URL" on a user's first
-// attachment, and a plain-http endpoint in production would send object keys,
-// the access key id and request signatures in clear text (merge gate, 29.10).
+// attachment, and a plain-http endpoint outside development would send object
+// keys, the access key id and request signatures in clear text. Plain http is
+// allowed only when NODE_ENV names a KNOWN non-production environment
+// (config/environment.js) — an unrecognised or production value fails closed,
+// and the production test is never hand-rolled here.
 export const buildS3ClientConfig = ({
   endpoint,
   region,
   accessKeyId,
   secretAccessKey,
-  nodeEnv = process.env.NODE_ENV,
+  allowPlainHttp = isKnownNonProduction(),
 }) => {
   const config = {
     credentials: {
@@ -42,8 +46,14 @@ export const buildS3ClientConfig = ({
     } catch {
       throw new Error('BUCKET_ENDPOINT is not a valid URL');
     }
-    if (parsed.protocol !== 'https:' && nodeEnv === 'production') {
-      throw new Error('BUCKET_ENDPOINT must use https in production');
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      throw new Error('BUCKET_ENDPOINT must be an http(s) URL');
+    }
+    if (parsed.username || parsed.password) {
+      throw new Error('BUCKET_ENDPOINT must not carry credentials; use BUCKET_ACCESS_KEY / BUCKET_SECRET_ACCESS_KEY');
+    }
+    if (parsed.protocol !== 'https:' && !allowPlainHttp) {
+      throw new Error('BUCKET_ENDPOINT must use https outside a known development environment');
     }
     config.endpoint = trimmed;
     config.forcePathStyle = true;
