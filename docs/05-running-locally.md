@@ -62,6 +62,29 @@ BUCKET_SECRET_ACCESS_KEY=demo
 > (המדריך הזה נהג לומר ש"השאר ירוץ בלעדיהם". זה פשוט לא היה נכון, ומי שעקב
 > אחריו מילה במילה קיבל קריסה.)
 
+**אופציונלי — אחסון תואם-S3 שאינו AWS (Cloudflare R2, MinIO):**
+```
+BUCKET_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+BUCKET_REGION=auto
+```
+
+> **מה זה נותן.** אותו קוד בדיוק (`src/services/s3.js`) מדבר עם כל שירות
+> שמממש את ה-API של S3. `BUCKET_ENDPOINT` הוא **אופציונלי**: בלעדיו החיבור
+> הוא ל-AWS S3 כרגיל, ושום דבר לא משתנה. כשהוא מוגדר, הלקוח פונה לכתובת
+> הזו במקום ל-AWS ועובר ל-path-style (שם ה-bucket בנתיב ולא בשם המארח) —
+> הצורה ש-R2 ו-MinIO מתעדים. ב-Cloudflare R2 הכתובת היא
+> `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, ו-`BUCKET_REGION` מומלץ
+> `auto`. המפתחות (`BUCKET_ACCESS_KEY`, `BUCKET_SECRET_ACCESS_KEY`)
+> **חייבים להתאים לכתובת**: מפתחות של AWS לצד כתובת של שירות אחר חושפים לו את
+> מזהה המפתח ואת שם ה-bucket. ב-R2 אלה "R2 API token" עם הרשאת Object Read & Write.
+> הכתובת חייבת להיות `https://`, אלא אם `NODE_ENV` הוא סביבת פיתוח מוכרת
+> (`local`, `dev`, `development`, `test` — ראה `src/config/environment.js`);
+> בכל ערך אחר, כולל `prod`, `production` או ערך לא מוכר, השרת מסרב לעלות עם
+> כתובת `http://`. כתובת עם שם משתמש וסיסמה בתוכה נדחית תמיד.
+>
+> **מצב האימות (29.10.2026):** התצורה נבדקה בבדיקות יחידה על צורת האובייקט
+> ועל כתובות חתומות בלי רשת. **טרם נבדקה מול bucket חי ב-R2 או ב-MinIO.**
+
 **אופציונלי — סיווג הקטגוריה והדחיפות ב-AI:**
 ```
 ANTHROPIC_API_KEY=המפתח-שלכם
