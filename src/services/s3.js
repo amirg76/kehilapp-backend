@@ -1,17 +1,45 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
-import { getBucketName, getBucketRegion, getBucketAccessKey, getBucketSecretAccessKey } from '../config/env.js';
+import {
+  getBucketName,
+  getBucketRegion,
+  getBucketAccessKey,
+  getBucketSecretAccessKey,
+  getBucketEndpoint,
+} from '../config/env.js';
 
-const s3 = new S3Client({
-  credentials: {
+// Builds the S3Client options. Pure, so both shapes can be asserted without a
+// network. With no endpoint this is exactly the AWS config used before: the SDK
+// derives the host from the region. With an endpoint (Cloudflare R2, MinIO, any
+// S3-compatible service) the SDK is pointed at that host, and path-style
+// addressing puts the bucket in the URL path rather than the hostname — the
+// form every such service accepts.
+export const buildS3ClientConfig = ({ endpoint, region, accessKeyId, secretAccessKey }) => {
+  const config = {
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+    region,
+  };
+  if (typeof endpoint === 'string' && endpoint.length > 0) {
+    config.endpoint = endpoint;
+    config.forcePathStyle = true;
+  }
+  return config;
+};
+
+const s3 = new S3Client(
+  buildS3ClientConfig({
+    endpoint: getBucketEndpoint(),
+    region: getBucketRegion(),
     accessKeyId: getBucketAccessKey(),
     secretAccessKey: getBucketSecretAccessKey(),
-  },
-  region: getBucketRegion(),
-});
+  }),
+);
 
-// upload a file to aws S3 bucket, if file is passed a unique key will be returned
+// upload a file to the bucket, if file is passed a unique key will be returned
 export const uploadFileToBucket = async (directory, file) => {
   if (file) {
     const fileKey = uuidv4();

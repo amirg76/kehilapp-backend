@@ -62,6 +62,21 @@ BUCKET_SECRET_ACCESS_KEY=demo
 > (המדריך הזה נהג לומר ש"השאר ירוץ בלעדיהם". זה פשוט לא היה נכון, ומי שעקב
 > אחריו מילה במילה קיבל קריסה.)
 
+**אופציונלי — אחסון תואם-S3 שאינו AWS (Cloudflare R2, MinIO):**
+```
+BUCKET_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+BUCKET_REGION=auto
+```
+
+> **מה זה נותן.** אותו קוד בדיוק (`src/services/s3.js`) מדבר עם כל שירות
+> שמממש את ה-API של S3. `BUCKET_ENDPOINT` הוא **אופציונלי**: בלעדיו החיבור
+> הוא ל-AWS S3 כרגיל, ושום דבר לא משתנה. כשהוא מוגדר, הלקוח פונה לכתובת
+> הזו במקום ל-AWS ועובר ל-path-style (שם ה-bucket בנתיב ולא בשם המארח) —
+> הצורה שכל שירות כזה מקבל. ב-Cloudflare R2 הכתובת היא
+> `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` ו-`BUCKET_REGION` חייב
+> להיות `auto`. המפתחות (`BUCKET_ACCESS_KEY`, `BUCKET_SECRET_ACCESS_KEY`)
+> הם אלה שהשירות הנפיק — ב-R2: "R2 API token" עם הרשאת Object Read & Write.
+
 **אופציונלי — סיווג הקטגוריה והדחיפות ב-AI:**
 ```
 ANTHROPIC_API_KEY=המפתח-שלכם
