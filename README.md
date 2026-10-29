@@ -38,7 +38,7 @@ person), in collaboration with the AppleSeeds (Tapuach) nonprofit. Covered by
 |---|---|
 | Runtime | Node.js 20 · Express 4 (ES modules) |
 | Database | MongoDB via Mongoose |
-| Files | S3-compatible object storage (AWS S3 by default; Cloudflare R2 or MinIO via `BUCKET_ENDPOINT`), presigned URLs, download-only content disposition |
+| Files | S3-compatible object storage (AWS S3 by default; Cloudflare R2 or MinIO via `BUCKET_ENDPOINT` — config-level support, not yet exercised against a live R2/MinIO bucket), presigned URLs, download-only content disposition |
 | Validation | Celebrate / Joi on every route |
 | Auth | JWT in an **httpOnly cookie** + CSRF double-submit token; `Authorization: Bearer` still accepted for API clients |
 | Email | Pluggable: log-only (default), Resend, or SMTP |

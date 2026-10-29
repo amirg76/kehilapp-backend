@@ -7,7 +7,8 @@ const getEnvVariable = (varName) => {
 };
 
 // Same lookup, but absence is a valid answer: returns '' instead of throwing.
-const getOptionalEnvVariable = (varName) => process.env[varName] || '';
+// Trimmed, so a value of only whitespace counts as absent (merge gate, 29.10).
+const getOptionalEnvVariable = (varName) => (process.env[varName] || '').trim();
 
 export const getJwtSecret = () => getEnvVariable('JWT_SECRET');
 

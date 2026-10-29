@@ -92,6 +92,49 @@ describe('buildS3ClientConfig — an S3-compatible endpoint (Cloudflare R2)', ()
     expect(config.credentials.secretAccessKey).toBe(SECRET_ACCESS_KEY);
     expect(config.region).toBe('auto');
   });
+
+  it('treats a whitespace-only endpoint as no endpoint, and trims a padded one', () => {
+    const blank = buildS3ClientConfig({
+      endpoint: '   ',
+      region: 'us-east-1',
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
+    });
+    expect(blank).not.toHaveProperty('endpoint');
+
+    const padded = buildS3ClientConfig({
+      endpoint: `  ${R2_ENDPOINT}  `,
+      region: 'auto',
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
+    });
+    expect(padded.endpoint).toBe(R2_ENDPOINT);
+  });
+
+  it('refuses a value that is not a URL, at build time rather than on first upload', () => {
+    expect(() =>
+      buildS3ClientConfig({
+        endpoint: 'not a url',
+        region: 'auto',
+        accessKeyId: ACCESS_KEY_ID,
+        secretAccessKey: SECRET_ACCESS_KEY,
+      }),
+    ).toThrow('BUCKET_ENDPOINT is not a valid URL');
+  });
+
+  it('refuses a plain-http endpoint in production, but allows it elsewhere (local MinIO)', () => {
+    const http = {
+      endpoint: 'http://minio.internal:9000',
+      region: 'auto',
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
+    };
+
+    expect(() => buildS3ClientConfig({ ...http, nodeEnv: 'production' })).toThrow(
+      'BUCKET_ENDPOINT must use https in production',
+    );
+    expect(buildS3ClientConfig({ ...http, nodeEnv: 'development' }).endpoint).toBe('http://minio.internal:9000');
+  });
 });
 
 describe('getBucketEndpoint — optional, unlike the other BUCKET_ variables', () => {
@@ -115,5 +158,11 @@ describe('getBucketEndpoint — optional, unlike the other BUCKET_ variables', (
     process.env.BUCKET_ENDPOINT = R2_ENDPOINT;
 
     expect(getBucketEndpoint()).toBe(R2_ENDPOINT);
+  });
+
+  it('trims the value, so a whitespace-only setting reads as unset', () => {
+    process.env.BUCKET_ENDPOINT = '   ';
+
+    expect(getBucketEndpoint()).toBe('');
   });
 });

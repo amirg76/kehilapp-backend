@@ -14,8 +14,19 @@ import {
 // derives the host from the region. With an endpoint (Cloudflare R2, MinIO, any
 // S3-compatible service) the SDK is pointed at that host, and path-style
 // addressing puts the bucket in the URL path rather than the hostname — the
-// form every such service accepts.
-export const buildS3ClientConfig = ({ endpoint, region, accessKeyId, secretAccessKey }) => {
+// form R2 and MinIO document.
+//
+// The endpoint is validated here, at startup, rather than on the first upload:
+// a malformed value would otherwise surface as "Invalid URL" on a user's first
+// attachment, and a plain-http endpoint in production would send object keys,
+// the access key id and request signatures in clear text (merge gate, 29.10).
+export const buildS3ClientConfig = ({
+  endpoint,
+  region,
+  accessKeyId,
+  secretAccessKey,
+  nodeEnv = process.env.NODE_ENV,
+}) => {
   const config = {
     credentials: {
       accessKeyId,
@@ -23,8 +34,18 @@ export const buildS3ClientConfig = ({ endpoint, region, accessKeyId, secretAcces
     },
     region,
   };
-  if (typeof endpoint === 'string' && endpoint.length > 0) {
-    config.endpoint = endpoint;
+  const trimmed = typeof endpoint === 'string' ? endpoint.trim() : '';
+  if (trimmed.length > 0) {
+    let parsed;
+    try {
+      parsed = new URL(trimmed);
+    } catch {
+      throw new Error('BUCKET_ENDPOINT is not a valid URL');
+    }
+    if (parsed.protocol !== 'https:' && nodeEnv === 'production') {
+      throw new Error('BUCKET_ENDPOINT must use https in production');
+    }
+    config.endpoint = trimmed;
     config.forcePathStyle = true;
   }
   return config;
