@@ -143,6 +143,15 @@ const credentialsFrom = (stdout) =>
       .map((m) => [m[1], { password: m[2], source: m[3] }]),
   );
 
+/**
+ * spawnSync blocks this process, and this process is the parent of the in-memory
+ * mongod and the reader of its output. Tests that only call spawnSync never give
+ * the event loop a turn, and on Node 24 the seed then timed out against that mongod:
+ * 4 of 4 runs failed without this line, 4 of 4 passed with it, and Node 20 passed
+ * without it (5 November 2026). The seed itself ran fine on Node 24 with a real mongo.
+ */
+beforeEach(() => new Promise((resolve) => setTimeout(resolve, 300)));
+
 describe('scripts/seedDemo.js generates its passwords instead of carrying them', () => {
   jest.setTimeout(180000);
 
