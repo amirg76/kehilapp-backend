@@ -72,8 +72,8 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.1",
     "module-alias": "^2.2.3",
-    "mongoose": "^7.4.3",
-    "multer": "^1.4.5-lts.1",
+    "mongoose": "^7.8.14",
+    "multer": "^2.5.0",
     "uuid": "^11.1.1",
     "winston": "^3.11.0"
   },
