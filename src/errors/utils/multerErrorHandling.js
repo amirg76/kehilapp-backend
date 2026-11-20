@@ -28,7 +28,17 @@ export default function applyMulterErrorHandler(error, next) {
         ),
       );
     } else {
-      next();
+      // Every other multer code is a malformed upload from the client: a field
+      // name that is too long, missing or invalid, too many parts or fields.
+      // multer 2 added several of these codes. This branch used to call next()
+      // with no error, which skipped the error handlers and answered 404.
+      next(
+        new AppError(
+          errorManagement.commonErrors.badRequest.message,
+          errorManagement.commonErrors.badRequest.code,
+          true,
+        ),
+      );
     }
   } else {
     next();
