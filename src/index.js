@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import 'dotenv/config';
 import { connectDB } from './services/db.js';
 import app from './app.js';
+import { dummyPasswordHash } from './apps/auth/domain/authController.js';
 import logger from './services/logger.js';
 import AppError from './errors/AppError.js';
 import errorManagement from './errors/utils/errorManagement.js';
@@ -74,6 +75,10 @@ const httpServer = createServer(app);
 const port = process.env.PORT || 5001;
 httpServer.listen(port, () => {
   logger.info(`server listening on port ${port} (${process.env.NODE_ENV || 'default'} mode)`);
+  // Build login's dummy hash now, so the first unknown-email login after a
+  // start is not twice as slow as the rest (see dummyPasswordHash). A failure
+  // here is retried on the first login that needs it.
+  dummyPasswordHash().catch(() => {});
 });
 
 // Finish in-flight requests before exiting, so a deploy or scale-down event

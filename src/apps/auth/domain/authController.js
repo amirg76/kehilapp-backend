@@ -28,6 +28,30 @@ const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const BCRYPT_COST = 12;
 
+// The hash a login is checked against when no user has that email. It must be
+// a REAL bcrypt hash at the same cost as the stored ones (register and
+// scripts/seedDemo.js both use 12): bcryptjs answers a malformed hash at once.
+// The old placeholder was 66 characters, so an unknown email was answered in
+// about 20 ms and a registered one in 300+ (live backend log, 22.11.2026).
+// Built on first use, not at import, so every test file that imports the app
+// does not pay for a cost-12 hash it may never need; src/index.js builds it
+// right after the server starts listening.
+// A failed build is not kept: a cached rejection would make every unknown-email
+// login a 500 while registered ones stay 401, the same leak by another route.
+let dummyHashPromise;
+export const dummyPasswordHash = () => {
+  dummyHashPromise ??= bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_COST).catch((err) => {
+    dummyHashPromise = undefined;
+    throw err;
+  });
+  return dummyHashPromise;
+};
+
+// Anything that is not a well-formed bcrypt hash (always 60 characters) is
+// answered at once by bcryptjs, so it gets the dummy too. Only corrupt rows
+// can hit this (the schema requires a hash and every writer uses bcrypt).
+const BCRYPT_HASH_LENGTH = 60;
+
 const unauthorized = () =>
   new AppError(
     errorManagement.commonErrors.authenticationError.message,
@@ -58,7 +82,8 @@ export const login = async (req, res, next) => {
   // Compare against a dummy hash when the user is missing so that a wrong email
   // and a wrong password take the same time. Otherwise the response time alone
   // tells an attacker which addresses are registered.
-  const hash = user?.passwordHash || '$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
+  const stored = user?.passwordHash;
+  const hash = typeof stored === 'string' && stored.length === BCRYPT_HASH_LENGTH ? stored : await dummyPasswordHash();
   const passwordMatches = await bcrypt.compare(password, hash);
 
   // One generic error for both cases — never reveal which half was wrong.
