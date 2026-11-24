@@ -6,7 +6,9 @@
  *   login before verify → 403 (credentials fine, address unconfirmed)
  *   verify-email with the emailed token → account verified
  *   login after verify → 200 with a token
- *   register the same email again → 409
+ *   register the same email again → the same 201, and still one account
+ *     (24.11.2026: a 409 told strangers who is registered; see
+ *     accountEnumeration.int.test.js)
  *   resend-verification → 200, issues a fresh usable token
  *
  * With no EMAIL_PROVIDER configured the mailer only logs the link and returns it,
@@ -17,6 +19,7 @@ import request from 'supertest';
 
 import app from '../app.js';
 import User from '../apps/users/dataAccess/userModel.js';
+import { mailSendStore, mailRecipientStore } from '../middlewares/rateLimit.js';
 
 const EMAIL = 'newcomer@test.example.com';
 const PASSWORD = 'correct-horse-battery';
@@ -26,6 +29,13 @@ const PASSWORD = 'correct-horse-battery';
 // index produces would never fire.
 beforeAll(async () => {
   await User.init();
+});
+
+// This file sends more mail to one address than the mail caps allow in an
+// hour; the caps themselves are tested in accountEnumeration.int.test.js.
+beforeEach(() => {
+  mailSendStore.resetAll();
+  mailRecipientStore.resetAll();
 });
 
 afterEach(async () => {
@@ -79,12 +89,13 @@ describe('self-registration', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects a duplicate email with 409', async () => {
+  it('answers a duplicate email like a new one, and keeps one account', async () => {
     const first = await register({ email: EMAIL, password: PASSWORD });
     expect(first.status).toBe(201);
 
     const second = await register({ email: EMAIL, password: PASSWORD });
-    expect(second.status).toBe(409);
+    expect(second.status).toBe(201);
+    expect(await User.countDocuments({ email: EMAIL })).toBe(1);
   });
 
   it('rejects a too-short password with 400 before touching the database', async () => {

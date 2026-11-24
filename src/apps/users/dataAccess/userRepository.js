@@ -22,17 +22,19 @@ export const getUserByEmailFromDb = async (email) => {
 };
 
 /**
- * Creates a self-registered account. The caller has already hashed the password
- * and the verification token; this layer never sees a plaintext secret.
+ * The document a self-registration creates, NOT saved. register() answers a
+ * taken address with one of these, so that answer carries the same fields and
+ * defaults (role, emailVerified, approved, a fresh id) as a real new account
+ * and cannot drift from it.
  */
-export const createUserInDb = async ({
+export const buildRegistrationUser = ({
   name,
   email,
   passwordHash,
   emailVerificationTokenHash,
   emailVerificationExpires,
-}) => {
-  return UserModel.create({
+}) =>
+  new UserModel({
     name,
     email,
     passwordHash,
@@ -41,6 +43,13 @@ export const createUserInDb = async ({
     emailVerificationTokenHash,
     emailVerificationExpires,
   });
+
+/**
+ * Creates a self-registered account. The caller has already hashed the password
+ * and the verification token; this layer never sees a plaintext secret.
+ */
+export const createUserInDb = async (fields) => {
+  return buildRegistrationUser(fields).save();
 };
 
 /**

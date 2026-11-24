@@ -7,6 +7,7 @@ import {
 } from './authValidation.js';
 import * as authController from '../domain/authController.js';
 import auth from '../../../middlewares/auth.js';
+import { mailSendLimiter, mailRecipientLimiter } from '../../../middlewares/rateLimit.js';
 
 const router = express.Router();
 
@@ -19,9 +20,22 @@ router.post('/login', loginValidation, authController.login);
 // necessity — the caller has no account yet, or is trying to activate one — and
 // are listed in PUBLIC_ROUTES with a reason. They are also CSRF-exempt in
 // middlewares/csrf.js: there is no session cookie in play on these requests.
-router.post('/register', registerValidation, authController.register);
+//
+// register and resend-verification email an address the caller typed, so they
+// also carry the mail caps, AFTER validation: a rejected form costs nothing,
+// and every request that gets past it counts, even one whose client hangs up
+// (see middlewares/rateLimit.js). Per-recipient first: requests it turns away
+// then never reach the per-caller count, so hammering one address does not use
+// up the budget everyone behind the same public IP shares.
+router.post('/register', registerValidation, mailRecipientLimiter, mailSendLimiter, authController.register);
 router.post('/verify-email', verifyEmailValidation, authController.verifyEmail);
-router.post('/resend-verification', resendVerificationValidation, authController.resendVerification);
+router.post(
+  '/resend-verification',
+  resendVerificationValidation,
+  mailRecipientLimiter,
+  mailSendLimiter,
+  authController.resendVerification,
+);
 
 // Who am I? Authenticated by definition — this is the only way a client holding
 // an httpOnly session cookie can discover the identity inside it (see the

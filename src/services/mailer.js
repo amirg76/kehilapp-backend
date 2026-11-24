@@ -143,14 +143,22 @@ const textBody = (link) =>
  */
 const linkForLog = (link) => (isKnownNonProduction() ? link : link.replace(/token=[^&]*/, 'token=<redacted>'));
 
-const logTransport = (email, link, reason) => {
-  logger.info(`[mailer] verification link for ${email}: ${linkForLog(link)}${reason ? ` (${reason})` : ''}`);
+const logTransport = (email, link, reason, kind = 'verification') => {
+  logger.info(`[mailer] ${kind} link for ${email}: ${linkForLog(link)}${reason ? ` (${reason})` : ''}`);
   return { link, provider: 'log', delivered: false };
 };
 
-const sendViaResend = async (email, link) => {
+/** The verification message: what register and resend-verification send. */
+const verificationMessage = (link) => ({
+  kind: 'verification',
+  subject: SUBJECT,
+  html: htmlBody(link),
+  text: textBody(link),
+});
+
+const sendViaResend = async (email, link, message) => {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return logTransport(email, link, 'EMAIL_PROVIDER=resend but RESEND_API_KEY is unset');
+  if (!apiKey) return logTransport(email, link, 'EMAIL_PROVIDER=resend but RESEND_API_KEY is unset', message.kind);
 
   let res;
   try {
@@ -160,9 +168,9 @@ const sendViaResend = async (email, link) => {
       body: JSON.stringify({
         from: MAIL_FROM(),
         to: email,
-        subject: SUBJECT,
-        html: htmlBody(link),
-        text: textBody(link),
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
       }),
     });
   } catch (err) {
@@ -171,21 +179,21 @@ const sendViaResend = async (email, link) => {
     // registration request itself — which is the one thing a mail fault must
     // never do. The status code is not in `err`, so it is logged by name.
     logger.error(`[mailer] resend request failed: ${err.name}`);
-    return logTransport(email, link, 'resend request failed');
+    return logTransport(email, link, 'resend request failed', message.kind);
   }
 
   if (!res.ok) {
     // Do not leak the provider's error to the client; log and fall back so the
     // account still gets created and the user can request a resend.
     logger.error(`[mailer] resend send failed (${res.status})`);
-    return logTransport(email, link, 'resend send failed');
+    return logTransport(email, link, 'resend send failed', message.kind);
   }
   return { link, provider: 'resend', delivered: true };
 };
 
-const sendViaSmtp = async (email, link) => {
+const sendViaSmtp = async (email, link, message) => {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST) return logTransport(email, link, 'EMAIL_PROVIDER=smtp but SMTP_HOST is unset');
+  if (!SMTP_HOST) return logTransport(email, link, 'EMAIL_PROVIDER=smtp but SMTP_HOST is unset', message.kind);
 
   let nodemailer;
   try {
@@ -193,7 +201,7 @@ const sendViaSmtp = async (email, link) => {
     // app does not require nodemailer to be installed.
     ({ default: nodemailer } = await import('nodemailer'));
   } catch {
-    return logTransport(email, link, 'nodemailer is not installed');
+    return logTransport(email, link, 'nodemailer is not installed', message.kind);
   }
 
   const transporter = nodemailer.createTransport({
@@ -207,17 +215,25 @@ const sendViaSmtp = async (email, link) => {
     await transporter.sendMail({
       from: MAIL_FROM(),
       to: email,
-      subject: SUBJECT,
-      html: htmlBody(link),
-      text: textBody(link),
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
     });
   } catch (err) {
     // Same reasoning as the Resend path: a refused connection or a rejected
     // recipient is a mail fault, not a registration fault.
     logger.error(`[mailer] smtp send failed: ${err.name}`);
-    return logTransport(email, link, 'smtp send failed');
+    return logTransport(email, link, 'smtp send failed', message.kind);
   }
   return { link, provider: 'smtp', delivered: true };
+};
+
+/** Picks the configured transport. Same fallbacks for every message. */
+const deliver = async (email, link, message) => {
+  const provider = (process.env.EMAIL_PROVIDER || '').toLowerCase();
+  if (provider === 'resend') return sendViaResend(email, link, message);
+  if (provider === 'smtp') return sendViaSmtp(email, link, message);
+  return logTransport(email, link, undefined, message.kind);
 };
 
 /**
@@ -227,18 +243,100 @@ const sendViaSmtp = async (email, link) => {
  */
 export const sendVerificationEmail = async ({ email, token }) => {
   const link = buildVerificationLink(token);
-  const provider = (process.env.EMAIL_PROVIDER || '').toLowerCase();
-
-  let result;
-  if (provider === 'resend') {
-    result = await sendViaResend(email, link);
-  } else if (provider === 'smtp') {
-    result = await sendViaSmtp(email, link);
-  } else {
-    result = logTransport(email, link);
-  }
-
+  const result = await deliver(email, link, verificationMessage(link));
   return { token, ...result };
 };
 
-export default { sendVerificationEmail, buildVerificationLink, assertVerificationLinkTarget };
+/**
+ * "You already have an account": what the owner of an address gets when
+ * someone registers with it again (24.11.2026). Register answers a taken
+ * address exactly like a new one, so the page cannot tell a stranger who is a
+ * member; the real owner learns it here, in their own inbox. No token: the
+ * link is the login page.
+ */
+const ACCOUNT_EXISTS_SUBJECT = 'כבר יש לך חשבון בקהילאפ';
+
+const accountExistsHtml = (
+  link,
+) => `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1e293b">
+  <h1 style="font-size:20px;margin:0 0 16px">כבר יש לך חשבון בקהילאפ</h1>
+  <p style="margin:0 0 16px">הרגע ניסו להירשם לקהילאפ עם כתובת המייל הזו. לכתובת הזו כבר יש חשבון, ולכן לא נוצר חשבון חדש.</p>
+  <p style="margin:0 0 24px"><a href="${link}" style="background:#0f766e;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">כניסה לחשבון</a></p>
+  <p style="margin:0 0 8px;font-size:14px;color:#475569">אם הכפתור אינו עובד, יש להעתיק את הכתובת הזו לדפדפן:</p>
+  <p style="margin:0 0 24px;font-size:14px;direction:ltr;text-align:right;word-break:break-all"><a href="${link}" style="color:#0f766e">${link}</a></p>
+  <p style="margin:0;font-size:14px;color:#475569">אם לא ניסית להירשם, אפשר להתעלם מהודעה זו. החשבון שלך לא השתנה.</p>
+</div>`;
+
+const accountExistsText = (link) =>
+  [
+    'כבר יש לך חשבון בקהילאפ',
+    '',
+    'הרגע ניסו להירשם לקהילאפ עם כתובת המייל הזו. לכתובת הזו כבר יש חשבון, ולכן לא נוצר חשבון חדש.',
+    'כניסה לחשבון:',
+    link,
+    '',
+    'אם לא ניסית להירשם, אפשר להתעלם מהודעה זו. החשבון שלך לא השתנה.',
+  ].join('\n');
+
+/**
+ * The same notice for an account that was opened but never verified. It does
+ * NOT carry a verification link, on purpose (security review, 24.11.2026): the
+ * pending account may have been opened by a stranger with the owner's address
+ * and the stranger's password, and a link here would invite the owner to
+ * verify exactly that account. A real owner gets a new link from the login
+ * page, which offers one only after the right password.
+ */
+const PENDING_ACCOUNT_SUBJECT = 'ניסיון הרשמה עם כתובת המייל שלך — קהילאפ';
+
+const pendingAccountHtml = (
+  link,
+) => `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1e293b">
+  <h1 style="font-size:20px;margin:0 0 16px">כבר נפתח חשבון עם כתובת המייל הזו</h1>
+  <p style="margin:0 0 16px">הרגע ניסו להירשם לקהילאפ עם כתובת המייל הזו. כבר יש חשבון עם הכתובת הזו, אבל הוא עדיין לא אומת, ולכן לא נוצר חשבון חדש.</p>
+  <p style="margin:0 0 16px">אם פתחתם את החשבון בעצמכם: היכנסו בדף הכניסה עם הסיסמה שבחרתם, ושם אפשר לבקש מייל אימות חדש.</p>
+  <p style="margin:0 0 24px"><a href="${link}" style="background:#0f766e;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">לדף הכניסה</a></p>
+  <p style="margin:0;font-size:14px;color:#475569">אם לא פתחתם חשבון בקהילאפ, מישהו אחר ניסה להירשם עם הכתובת שלכם. אל תלחצו על קישורי אימות מקהילאפ שלא ביקשתם.</p>
+</div>`;
+
+const pendingAccountText = (link) =>
+  [
+    'כבר נפתח חשבון עם כתובת המייל הזו',
+    '',
+    'הרגע ניסו להירשם לקהילאפ עם כתובת המייל הזו. כבר יש חשבון עם הכתובת הזו, אבל הוא עדיין לא אומת, ולכן לא נוצר חשבון חדש.',
+    'אם פתחתם את החשבון בעצמכם: היכנסו בדף הכניסה עם הסיסמה שבחרתם, ושם אפשר לבקש מייל אימות חדש.',
+    link,
+    '',
+    'אם לא פתחתם חשבון בקהילאפ, מישהו אחר ניסה להירשם עם הכתובת שלכם. אל תלחצו על קישורי אימות מקהילאפ שלא ביקשתם.',
+  ].join('\n');
+
+export const buildLoginLink = () => `${appBaseUrl()}/login`;
+
+/**
+ * Tells the owner of a taken address that someone just registered with it.
+ * `verified` picks the wording; neither message carries a token.
+ */
+export const sendAccountExistsEmail = async ({ email, verified }) => {
+  const link = buildLoginLink();
+  const message = verified
+    ? {
+        kind: 'account-exists',
+        subject: ACCOUNT_EXISTS_SUBJECT,
+        html: accountExistsHtml(link),
+        text: accountExistsText(link),
+      }
+    : {
+        kind: 'account-pending',
+        subject: PENDING_ACCOUNT_SUBJECT,
+        html: pendingAccountHtml(link),
+        text: pendingAccountText(link),
+      };
+  return deliver(email, link, message);
+};
+
+export default {
+  sendVerificationEmail,
+  sendAccountExistsEmail,
+  buildVerificationLink,
+  buildLoginLink,
+  assertVerificationLinkTarget,
+};

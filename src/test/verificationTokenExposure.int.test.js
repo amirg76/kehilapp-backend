@@ -22,6 +22,22 @@ import request from 'supertest';
 
 import app from '../app.js';
 import User from '../apps/users/dataAccess/userModel.js';
+import logger from '../services/logger.js';
+import { mailSendStore, mailRecipientStore } from '../middlewares/rateLimit.js';
+
+// With the flag off, resend-verification answers first and saves the new token
+// and sends the email after (24.11.2026). A test that ends right after the
+// answer would race that work against afterEach's cleanup, so it waits for the
+// email to be "sent" (the log transport's line) before finishing.
+const verificationLinksLogged = (spy) =>
+  spy.mock.calls.filter(([line]) => String(line).includes('verification link for')).length;
+const waitForSends = async (spy, count) => {
+  const until = Date.now() + 10000;
+  while (verificationLinksLogged(spy) < count) {
+    if (Date.now() > until) throw new Error('the background verification email was never sent');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+};
 
 const FLAG = 'EXPOSE_VERIFICATION_LINK';
 const EMAIL = 'stranger@test.example.com';
@@ -39,6 +55,10 @@ beforeAll(async () => {
 beforeEach(() => {
   flagBefore = process.env[FLAG];
   process.env[FLAG] = '';
+  // More mail to one address here than the mail caps allow in an hour; the
+  // caps are tested in accountEnumeration.int.test.js.
+  mailSendStore.resetAll();
+  mailRecipientStore.resetAll();
 });
 
 afterEach(async () => {
@@ -105,19 +125,25 @@ describe('POST /api/auth/register with the exposure flag off', () => {
 describe('POST /api/auth/resend-verification with the exposure flag off', () => {
   it('returns no token for an address that exists and is unverified', async () => {
     await register({ email: EMAIL, password: PASSWORD });
+    const info = jest.spyOn(logger, 'info');
 
     const res = await resend(EMAIL);
 
     expect(res.status).toBe(200);
     expect(Object.keys(res.body).sort()).toEqual(['message', 'ok']);
     expect(JSON.stringify(res.body)).not.toMatch(/token/i);
+    await waitForSends(info, 1);
+    info.mockRestore();
   });
 
   it('answers a registered and an unregistered address identically', async () => {
     await register({ email: EMAIL, password: PASSWORD });
+    const info = jest.spyOn(logger, 'info');
 
     const known = await resend(EMAIL);
     const unknown = await resend('nobody-here@test.example.com');
+    await waitForSends(info, 1);
+    info.mockRestore();
 
     // Uniformity is why this endpoint does NOT report emailDelivered the way
     // register does: delivery is only attempted for an address that exists and is

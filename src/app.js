@@ -68,6 +68,8 @@ app.use('/api/users', usersRoutes);
 // limiter across all of /api/auth also throttled registration, which surfaced to
 // users as a generic "registration failed".
 app.use('/api/auth/login', loginLimiter);
+// The mail caps (per caller and per recipient) sit on the register and
+// resend-verification routes themselves, after validation: see authRoutes.js.
 app.use('/api/auth/register', registerLimiter);
 app.use('/api/auth/verify-email', registerLimiter);
 app.use('/api/auth/resend-verification', registerLimiter);

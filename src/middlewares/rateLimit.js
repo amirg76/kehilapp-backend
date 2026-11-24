@@ -1,4 +1,5 @@
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import crypto from 'crypto';
+import rateLimit, { ipKeyGenerator, MemoryStore } from 'express-rate-limit';
 
 import AppError from '../errors/AppError.js';
 import errorManagement from '../errors/utils/errorManagement.js';
@@ -52,11 +53,77 @@ export const loginLimiter = rateLimit({
  * protection, not a brute-force lock.
  *
  * Successful requests are not counted, so an ordinary user never spends the budget.
+ * Nor is a 429 from the mail caps below (24.11.2026): it is one limiter for
+ * register, resend AND verify-email, so blocked mail requests would otherwise
+ * use up the budget and lock everyone behind that address out of verifying.
  */
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 20,
   skipSuccessfulRequests: true,
+  requestWasSuccessful: (req, res) => res.statusCode < 400 || res.statusCode === 429,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler,
+});
+
+/*
+ * Caps on the requests that make this server send an email to an address the
+ * caller typed: register and resend-verification (24.11.2026).
+ *
+ * registerLimiter above counts only failures, and both of these succeed every
+ * time — register answers a taken address with 201 too, and resend is always
+ * 200. So one caller could make the live mail provider write to ~300 strangers'
+ * inboxes every 15 minutes (the apiLimiter ceiling): spam in this server's
+ * name, and the provider's quota and reputation spent on it.
+ *
+ * Mounted on the routes AFTER validation (authRoutes.js), and counting every
+ * request that gets there. Not skipFailedRequests: express-rate-limit takes a
+ * request back off the count when the client closes the connection before the
+ * answer, while the handler goes on and sends the email anyway — measured by
+ * the security review, 20 aborted requests sent 20 emails and counted none.
+ * A form rejected by validation (400) never reaches them, so typos are free.
+ *
+ * Two keys, two jobs:
+ *  - per caller (IP), 20 an hour: a generous ceiling on one source. A whole
+ *    kibbutz or household shares one public address, and 5 would have let any
+ *    one resident (or 5 requests for made-up addresses) lock out everyone.
+ *  - per recipient, 3 an hour: what stops one person's inbox being flooded from
+ *    many addresses. Counted whether or not the address is registered, so its
+ *    429 tells nothing about membership.
+ *
+ * The stores are exported so tests that send more mail than this in one file
+ * can reset them between tests.
+ */
+export const mailSendStore = new MemoryStore();
+export const mailRecipientStore = new MemoryStore();
+
+export const mailSendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  store: mailSendStore,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler,
+});
+
+// The address as the schema stores it (trim + lowercase), hashed so the store
+// never holds a list of email addresses.
+export const recipientKey = (req) =>
+  `mail:${crypto
+    .createHash('sha256')
+    .update(
+      String(req.body?.email ?? '')
+        .trim()
+        .toLowerCase(),
+    )
+    .digest('hex')}`;
+
+export const mailRecipientLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  keyGenerator: recipientKey,
+  store: mailRecipientStore,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   handler,

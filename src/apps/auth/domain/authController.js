@@ -7,12 +7,14 @@ import {
   getUserByEmailForLoginFromDb,
   getUserByEmailFromDb,
   createUserInDb,
+  buildRegistrationUser,
   getUserByVerificationTokenHashFromDb,
   getUserFromDb,
 } from '../../users/dataAccess/userRepository.js';
 import { getJwtSecret } from '../../../config/env.js';
 import crypto from 'crypto';
-import { sendVerificationEmail } from '../../../services/mailer.js';
+import logger from '../../../services/logger.js';
+import { sendVerificationEmail, sendAccountExistsEmail } from '../../../services/mailer.js';
 import { mayExposeVerificationLink } from '../../../config/environment.js';
 import { AUTH_COOKIE, CSRF_COOKIE, authCookieOptions, csrfCookieOptions } from '../../../config/cookies.js';
 
@@ -171,22 +173,50 @@ export const logout = async (req, res) => {
   return res.status(200).json({ ok: true });
 };
 
+/** Mints a new token for an unverified account, saves it, and emails the link. */
+const refreshVerification = async (user) => {
+  const { token, emailVerificationTokenHash, emailVerificationExpires } = mintVerificationToken();
+  user.emailVerificationTokenHash = emailVerificationTokenHash;
+  user.emailVerificationExpires = emailVerificationExpires;
+  await user.save();
+  return sendVerificationEmail({ email: user.email, token });
+};
+
+/**
+ * What the owner of an address that someone just registered again receives:
+ * a notice, never a verification link, and the account is not touched.
+ *
+ * NOT a fresh link for an unverified account (security review, 24.11.2026). A
+ * stranger can open the account first, with the owner's address and the
+ * stranger's password; a link sent here would invite the owner to verify that
+ * account, and the stranger would then log in as them. The owner who did open
+ * it gets a new link from the login page, which offers one only after the
+ * right password (the 403 "not verified" answer).
+ */
+const notifyExistingOwner = async (existing) =>
+  sendAccountExistsEmail({ email: existing.email, verified: existing.emailVerified === true });
+
 /**
  * Self-registration. Creates an unverified `member` account and emails (or, in
  * dev/test, logs) a verification link. The account cannot log in until it is
  * verified — see the emailVerified check in `login`.
  *
- * A duplicate email surfaces as the unique-index violation on create, which the
- * error pipeline maps to 409 (see errorHandlers). We do NOT pre-check existence
- * and branch on it, which would just be a second, racier way to the same 409.
+ * A TAKEN ADDRESS GETS THE SAME ANSWER AS A NEW ONE (24.11.2026). It used to
+ * be a 409, which told anyone with a list of addresses who is a member, one
+ * request each. Now the page always says "check your inbox", and the inbox
+ * tells the real owner what happened (see notifyExistingOwner). Both paths hash
+ * a password and send one email, so they also take about the same time. The
+ * mail caps sit on the route (authRoutes.js).
+ *
+ * Existence is still not pre-checked: the insert is tried and the unique index
+ * decides, so two registrations racing for one address both land here safely.
  */
 export const register = async (req, res) => {
   const { name, email, password } = req.body;
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
   const { token, emailVerificationTokenHash, emailVerificationExpires } = mintVerificationToken();
-
-  const user = await createUserInDb({
+  const fields = {
     // A display name is optional at registration; fall back to the local-part of
     // the address so `name` (required by the schema) is always satisfied.
     name: name || email.split('@')[0],
@@ -194,9 +224,24 @@ export const register = async (req, res) => {
     passwordHash,
     emailVerificationTokenHash,
     emailVerificationExpires,
-  });
+  };
 
-  const mail = await sendVerificationEmail({ email: user.email, token });
+  let user;
+  let existing = null;
+  try {
+    user = await createUserInDb(fields);
+  } catch (err) {
+    // Only "this address is taken" is answered as a success. The lookup, not
+    // the error's shape, decides: Mongo's duplicate-key error reaches here as
+    // code 11000 or, through the schema hook, as an AppError.
+    existing = await getUserByEmailFromDb(email);
+    if (!existing) throw err;
+    user = buildRegistrationUser(fields);
+  }
+
+  const mail = existing
+    ? await notifyExistingOwner(existing)
+    : await sendVerificationEmail({ email: user.email, token });
 
   const body = {
     id: user.id,
@@ -222,7 +267,10 @@ export const register = async (req, res) => {
   // meant always: registering with someone else's address returned the token that
   // verifies that address. `!mail.delivered` stays as a third condition because
   // echoing a token that was genuinely emailed is pointless as well as unsafe.
-  if (!mail.delivered && mayExposeVerificationLink()) {
+  // (Development only: a taken, verified address has no token to echo, so there
+  // the two answers differ. mayExposeVerificationLink() is never true in
+  // production.)
+  if (!mail.delivered && mayExposeVerificationLink() && mail.token) {
     body.verificationToken = mail.token;
     body.verificationLink = mail.link;
   }
@@ -268,17 +316,21 @@ export const resendVerification = async (req, res) => {
   let devHint;
 
   if (user && !user.emailVerified) {
-    const { token, emailVerificationTokenHash, emailVerificationExpires } = mintVerificationToken();
-    user.emailVerificationTokenHash = emailVerificationTokenHash;
-    user.emailVerificationExpires = emailVerificationExpires;
-    await user.save();
-
-    const mail = await sendVerificationEmail({ email: user.email, token });
-    // Same two explicit conditions as register. This endpoint was the worse of
-    // the two leaks: it takes an address and nothing else, so it handed out a
-    // verification token for any unverified account without even registering.
-    if (!mail.delivered && mayExposeVerificationLink()) {
-      devHint = { verificationToken: mail.token, verificationLink: mail.link };
+    if (mayExposeVerificationLink()) {
+      // Development only: the link comes back in the body, so wait for it.
+      const mail = await refreshVerification(user);
+      // Same two explicit conditions as register. This endpoint was the worse of
+      // the two leaks: it takes an address and nothing else, so it handed out a
+      // verification token for any unverified account without even registering.
+      if (!mail.delivered) devHint = { verificationToken: mail.token, verificationLink: mail.link };
+    } else {
+      // The answer does NOT wait for the email (24.11.2026). Only this branch
+      // sends one, and a send to the mail provider takes hundreds of ms, so
+      // waiting for it told a stranger "registered and not yet verified" by
+      // the clock alone, whatever the body said. The token is saved and the
+      // mail sent after the response; a failure is logged, and the caller
+      // retries as they would for a lost email.
+      refreshVerification(user).catch((err) => logger.error(`[auth] resend-verification failed: ${err.name}`));
     }
   }
 
