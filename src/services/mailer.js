@@ -107,7 +107,7 @@ const htmlBody = (
   link,
 ) => `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1e293b">
   <h1 style="font-size:20px;margin:0 0 16px">ברוכים הבאים לקהילאפ</h1>
-  <p style="margin:0 0 16px">כדי להשלים את ההרשמה, יש לאמת את כתובת המייל הזו:</p>
+  <p style="margin:0 0 16px">כדי להשלים את ההרשמה, יש לאמת את כתובת המייל הזו. בדף האימות תתבקשו להקליד את הסיסמה שבחרתם בהרשמה.</p>
   <p style="margin:0 0 24px"><a href="${link}" style="background:#0f766e;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">אימות כתובת המייל</a></p>
   <p style="margin:0 0 8px;font-size:14px;color:#475569">אם הכפתור אינו עובד, יש להעתיק את הכתובת הזו לדפדפן:</p>
   <p style="margin:0 0 24px;font-size:14px;direction:ltr;text-align:right;word-break:break-all"><a href="${link}" style="color:#0f766e">${link}</a></p>
@@ -119,7 +119,7 @@ const textBody = (link) =>
   [
     'ברוכים הבאים לקהילאפ',
     '',
-    'כדי להשלים את ההרשמה, יש לאמת את כתובת המייל הזו:',
+    'כדי להשלים את ההרשמה, יש לאמת את כתובת המייל הזו. בדף האימות תתבקשו להקליד את הסיסמה שבחרתם בהרשמה.',
     link,
     '',
     'לאחר האימות, מנהל הקהילה יאשר את החשבון. עד אז יוצג תוכן ציבורי בלבד.',
@@ -278,59 +278,21 @@ const accountExistsText = (link) =>
     'אם לא ניסית להירשם, אפשר להתעלם מהודעה זו. החשבון שלך לא השתנה.',
   ].join('\n');
 
-/**
- * The same notice for an account that was opened but never verified. It does
- * NOT carry a verification link, on purpose (security review, 24.11.2026): the
- * pending account may have been opened by a stranger with the owner's address
- * and the stranger's password, and a link here would invite the owner to
- * verify exactly that account. A real owner gets a new link from the login
- * page, which offers one only after the right password.
- */
-const PENDING_ACCOUNT_SUBJECT = 'ניסיון הרשמה עם כתובת המייל שלך — קהילאפ';
-
-const pendingAccountHtml = (
-  link,
-) => `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1e293b">
-  <h1 style="font-size:20px;margin:0 0 16px">כבר נפתח חשבון עם כתובת המייל הזו</h1>
-  <p style="margin:0 0 16px">הרגע ניסו להירשם לקהילאפ עם כתובת המייל הזו. כבר יש חשבון עם הכתובת הזו, אבל הוא עדיין לא אומת, ולכן לא נוצר חשבון חדש.</p>
-  <p style="margin:0 0 16px">אם פתחתם את החשבון בעצמכם: היכנסו בדף הכניסה עם הסיסמה שבחרתם, ושם אפשר לבקש מייל אימות חדש.</p>
-  <p style="margin:0 0 24px"><a href="${link}" style="background:#0f766e;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">לדף הכניסה</a></p>
-  <p style="margin:0;font-size:14px;color:#475569">אם לא פתחתם חשבון בקהילאפ, מישהו אחר ניסה להירשם עם הכתובת שלכם. אל תלחצו על קישורי אימות מקהילאפ שלא ביקשתם.</p>
-</div>`;
-
-const pendingAccountText = (link) =>
-  [
-    'כבר נפתח חשבון עם כתובת המייל הזו',
-    '',
-    'הרגע ניסו להירשם לקהילאפ עם כתובת המייל הזו. כבר יש חשבון עם הכתובת הזו, אבל הוא עדיין לא אומת, ולכן לא נוצר חשבון חדש.',
-    'אם פתחתם את החשבון בעצמכם: היכנסו בדף הכניסה עם הסיסמה שבחרתם, ושם אפשר לבקש מייל אימות חדש.',
-    link,
-    '',
-    'אם לא פתחתם חשבון בקהילאפ, מישהו אחר ניסה להירשם עם הכתובת שלכם. אל תלחצו על קישורי אימות מקהילאפ שלא ביקשתם.',
-  ].join('\n');
-
 export const buildLoginLink = () => `${appBaseUrl()}/login`;
 
 /**
- * Tells the owner of a taken address that someone just registered with it.
- * `verified` picks the wording; neither message carries a token.
+ * Tells the owner of a VERIFIED address that someone just registered with it.
+ * No token. (A taken address that was never verified gets a verification
+ * link instead; see register() in authController.js.)
  */
-export const sendAccountExistsEmail = async ({ email, verified }) => {
+export const sendAccountExistsEmail = async ({ email }) => {
   const link = buildLoginLink();
-  const message = verified
-    ? {
-        kind: 'account-exists',
-        subject: ACCOUNT_EXISTS_SUBJECT,
-        html: accountExistsHtml(link),
-        text: accountExistsText(link),
-      }
-    : {
-        kind: 'account-pending',
-        subject: PENDING_ACCOUNT_SUBJECT,
-        html: pendingAccountHtml(link),
-        text: pendingAccountText(link),
-      };
-  return deliver(email, link, message);
+  return deliver(email, link, {
+    kind: 'account-exists',
+    subject: ACCOUNT_EXISTS_SUBJECT,
+    html: accountExistsHtml(link),
+    text: accountExistsText(link),
+  });
 };
 
 export default {

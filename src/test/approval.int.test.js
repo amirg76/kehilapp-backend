@@ -110,7 +110,9 @@ describe('approval state on the identity endpoints', () => {
     expect(reg.status).toBe(201);
     expect(reg.body.approved).toBe(false);
 
-    const verify = await request(app).post('/api/auth/verify-email').send({ token: reg.body.verificationToken });
+    const verify = await request(app)
+      .post('/api/auth/verify-email')
+      .send({ token: reg.body.verificationToken, password: PASSWORD });
     expect(verify.status).toBe(200);
 
     const loggedIn = await request(app).post('/api/auth/login').send({ email, password: PASSWORD });

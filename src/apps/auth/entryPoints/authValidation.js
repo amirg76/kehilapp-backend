@@ -23,7 +23,13 @@ export const registerValidation = celebrate({
 
 export const verifyEmailValidation = celebrate({
   [Segments.BODY]: Joi.object().keys({
-    token: Joi.string().required(),
+    // A real token is 64 hex characters; the ceiling only stops a huge input
+    // being hashed (security review, 24.11.2026).
+    token: Joi.string().max(256).required(),
+    // The password chosen at registration (24.11.2026): the link alone proves
+    // only that someone reads this inbox, not that they opened this account.
+    // Same bounds as login.
+    password: Joi.string().min(8).max(128).required(),
   }),
 });
 

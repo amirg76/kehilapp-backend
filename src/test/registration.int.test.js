@@ -74,7 +74,7 @@ describe('self-registration', () => {
     const reg = await register({ email: EMAIL, password: PASSWORD });
     const token = reg.body.verificationToken;
 
-    const verify = await request(app).post('/api/auth/verify-email').send({ token });
+    const verify = await request(app).post('/api/auth/verify-email').send({ token, password: PASSWORD });
     expect(verify.status).toBe(200);
     expect(verify.body.emailVerified).toBe(true);
 
@@ -85,7 +85,9 @@ describe('self-registration', () => {
 
   it('rejects an invalid verification token with 400', async () => {
     await register({ email: EMAIL, password: PASSWORD });
-    const res = await request(app).post('/api/auth/verify-email').send({ token: 'not-a-real-token' });
+    const res = await request(app)
+      .post('/api/auth/verify-email')
+      .send({ token: 'not-a-real-token', password: PASSWORD });
     expect(res.status).toBe(400);
   });
 
@@ -111,7 +113,9 @@ describe('self-registration', () => {
     expect(resend.status).toBe(200);
     expect(resend.body.verificationToken).toBeTruthy();
 
-    const verify = await request(app).post('/api/auth/verify-email').send({ token: resend.body.verificationToken });
+    const verify = await request(app)
+      .post('/api/auth/verify-email')
+      .send({ token: resend.body.verificationToken, password: PASSWORD });
     expect(verify.status).toBe(200);
 
     const res = await login(EMAIL, PASSWORD);

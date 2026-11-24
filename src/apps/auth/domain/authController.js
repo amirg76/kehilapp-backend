@@ -9,6 +9,8 @@ import {
   createUserInDb,
   buildRegistrationUser,
   getUserByVerificationTokenHashFromDb,
+  markEmailVerifiedInDb,
+  replacePendingRegistrationInDb,
   getUserFromDb,
 } from '../../users/dataAccess/userRepository.js';
 import { getJwtSecret } from '../../../config/env.js';
@@ -183,18 +185,24 @@ const refreshVerification = async (user) => {
 };
 
 /**
- * What the owner of an address that someone just registered again receives:
- * a notice, never a verification link, and the account is not touched.
+ * A registration for an address whose account was opened but never verified
+ * REPLACES that pending registration: the new name and password, a new token
+ * (the old link stops working), and a verification email (24.11.2026).
  *
- * NOT a fresh link for an unverified account (security review, 24.11.2026). A
- * stranger can open the account first, with the owner's address and the
- * stranger's password; a link sent here would invite the owner to verify that
- * account, and the stranger would then log in as them. The owner who did open
- * it gets a new link from the login page, which offers one only after the
- * right password (the 403 "not verified" answer).
+ * Safe only because verify-email asks for the password. Whoever registers
+ * last owns the pending password, but only the inbox's owner gets the link, so
+ * the account is activated only by someone holding both: the owner, after
+ * registering themselves. A stranger who registers with someone's address can
+ * no longer have it activated by the owner clicking a link (pre-hijacking),
+ * and can no longer keep the address for good, because the owner's own
+ * registration replaces theirs. An unverified account cannot log in or be
+ * approved (usersController), so nothing else is attached to it.
+ *
+ * One conditional update, not load-then-save (see userRepository.js): if the
+ * account was verified after it was read, nothing is written and this returns
+ * null, and the caller treats it as the verified account it now is.
  */
-const notifyExistingOwner = async (existing) =>
-  sendAccountExistsEmail({ email: existing.email, verified: existing.emailVerified === true });
+const replacePendingRegistration = (existing, fields) => replacePendingRegistrationInDb(existing._id, fields);
 
 /**
  * Self-registration. Creates an unverified `member` account and emails (or, in
@@ -204,9 +212,11 @@ const notifyExistingOwner = async (existing) =>
  * A TAKEN ADDRESS GETS THE SAME ANSWER AS A NEW ONE (24.11.2026). It used to
  * be a 409, which told anyone with a list of addresses who is a member, one
  * request each. Now the page always says "check your inbox", and the inbox
- * tells the real owner what happened (see notifyExistingOwner). Both paths hash
- * a password and send one email, so they also take about the same time. The
- * mail caps sit on the route (authRoutes.js).
+ * tells the real owner what happened: a verified account's owner gets "you
+ * already have an account"; a pending one is replaced and gets a new link (see
+ * replacePendingRegistration). Every path hashes a password and sends one
+ * email, so they also take about the same time. The mail caps sit on the route
+ * (authRoutes.js).
  *
  * Existence is still not pre-checked: the insert is tried and the unique index
  * decides, so two registrations racing for one address both land here safely.
@@ -236,12 +246,18 @@ export const register = async (req, res) => {
     // code 11000 or, through the schema hook, as an AppError.
     existing = await getUserByEmailFromDb(email);
     if (!existing) throw err;
+    // The answer is built from an unsaved document with a fresh id, never from
+    // `existing`: its id would be the same on every attempt for that address,
+    // and a repeat would tell a stranger the address is taken.
     user = buildRegistrationUser(fields);
   }
 
-  const mail = existing
-    ? await notifyExistingOwner(existing)
-    : await sendVerificationEmail({ email: user.email, token });
+  const replaced =
+    existing && existing.emailVerified !== true ? await replacePendingRegistration(existing, fields) : null;
+  const mail =
+    existing && !replaced
+      ? await sendAccountExistsEmail({ email: existing.email })
+      : await sendVerificationEmail({ email: existing?.email ?? user.email, token });
 
   const body = {
     id: user.id,
@@ -268,7 +284,7 @@ export const register = async (req, res) => {
   // verifies that address. `!mail.delivered` stays as a third condition because
   // echoing a token that was genuinely emailed is pointless as well as unsafe.
   // (Development only: a taken, verified address has no token to echo, so there
-  // the two answers differ. mayExposeVerificationLink() is never true in
+  // the answers differ. mayExposeVerificationLink() is never true in
   // production.)
   if (!mail.delivered && mayExposeVerificationLink() && mail.token) {
     body.verificationToken = mail.token;
@@ -279,26 +295,43 @@ export const register = async (req, res) => {
 };
 
 /**
- * Confirms an address from the token in the emailed link. Marks the account
- * verified and clears the one-time token so the link cannot be replayed.
+ * Confirms an address from the token in the emailed link, AND the password
+ * chosen at registration. Marks the account verified and clears the one-time
+ * token so the link cannot be replayed.
  *
  * A wrong, already-used, or expired token all yield the same generic 400 — the
  * lookup is by hash and scoped to unexpired tokens, so a miss reveals nothing.
+ *
+ * WHY THE PASSWORD (24.11.2026). The link proves only that someone reads the
+ * inbox. A stranger could register first with a resident's address and the
+ * stranger's own password; the resident, clicking "verify" in a genuine email,
+ * activated that account, and the stranger then logged in as the resident. Now
+ * the account is activated only by someone who has the link AND the password.
+ *
+ * A wrong password is a 403, not 401 (the front clears its session on any
+ * 401), and it does not spend the token: only the inbox's owner has the token,
+ * so a retry is theirs, and registerLimiter counts the failures.
  */
 export const verifyEmail = async (req, res, next) => {
-  const { token } = req.body;
+  const { token, password } = req.body;
 
-  const user = await getUserByVerificationTokenHashFromDb(sha256(token));
-  if (!user) {
+  const invalidLink = () =>
+    next(new AppError('Invalid or expired verification token.', errorManagement.commonErrors.badRequest.code, true));
+
+  const tokenHash = sha256(token);
+  const user = await getUserByVerificationTokenHashFromDb(tokenHash);
+  if (!user) return invalidLink();
+
+  if (!(await bcrypt.compare(password, user.passwordHash))) {
     return next(
-      new AppError('Invalid or expired verification token.', errorManagement.commonErrors.badRequest.code, true),
+      new AppError('Wrong password for this account.', errorManagement.commonErrors.authorizationError.code, true),
     );
   }
 
-  user.emailVerified = true;
-  user.emailVerificationTokenHash = undefined;
-  user.emailVerificationExpires = undefined;
-  await user.save();
+  // Written only if the account still holds THIS token. A registration for
+  // the address while bcrypt ran replaced the token together with the
+  // password just checked, so the link is no longer good (see userRepository).
+  if (!(await markEmailVerifiedInDb(user._id, tokenHash))) return invalidLink();
 
   return res.status(200).json({ ok: true, emailVerified: true });
 };

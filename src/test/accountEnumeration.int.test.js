@@ -27,7 +27,6 @@ const PASSWORD = 'correct-horse-battery';
 const PROVIDER_DELAY_MS = 800;
 const SUBJECT_VERIFY = 'אימות כתובת המייל שלך — קהילאפ';
 const SUBJECT_EXISTS = 'כבר יש לך חשבון בקהילאפ';
-const SUBJECT_PENDING = 'ניסיון הרשמה עם כתובת המייל שלך — קהילאפ';
 
 jest.setTimeout(120000);
 
@@ -138,30 +137,36 @@ describe('register', () => {
     ]);
   });
 
-  it('answers a taken, never-verified address like a new one, and sends a warning, not a link', async () => {
-    // The account may have been opened by a stranger with the owner's address
-    // and the stranger's password. A verification link here would invite the
-    // owner to verify that account (security review, 24.11.2026).
+  it('answers a taken, never-verified address like a new one, and replaces that pending registration', async () => {
+    // Safe because verify-email asks for the password (see the describe block
+    // below): the new password is useful only to whoever also has the inbox.
     const before = await existingMember('pending@test.example.com', { verified: false });
-    const hashBefore = (await User.findById(before.id).select('+passwordHash')).passwordHash;
 
     const fresh = await register({ email: 'fresh@test.example.com', password: PASSWORD });
     sent = [];
     const taken = await register({ email: 'pending@test.example.com', password: 'another-password-123', name: 'X' });
 
     sameAnswer(taken, fresh);
-    const after = await User.findById(before.id).select(
-      '+passwordHash +emailVerificationTokenHash +emailVerificationExpires',
-    );
-    expect(after.passwordHash).toBe(hashBefore);
-    expect(after.name).toBe('Existing');
+    expect(await User.countDocuments({ email: 'pending@test.example.com' })).toBe(1);
+    const after = await User.findById(before.id).select('+passwordHash +emailVerificationTokenHash');
+    expect(await bcrypt.compare('another-password-123', after.passwordHash)).toBe(true);
+    expect(after.name).toBe('X');
     expect(after.emailVerified).toBe(false);
-    // The token is not re-minted: the earlier link (if the owner has one) still works.
-    expect(after.emailVerificationTokenHash).toBe('old-token-hash');
+    // A new token: the earlier link stops working.
+    expect(after.emailVerificationTokenHash).not.toBe('old-token-hash');
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe('pending@test.example.com');
-    expect(sent[0].subject).toBe(SUBJECT_PENDING);
-    expect(sent[0].html).not.toMatch(/token=|verify-email/);
+    expect(sent[0].subject).toBe(SUBJECT_VERIFY);
+    expect(sent[0].html).toMatch(/verify-email\?token=/);
+  });
+
+  it('answers a taken address with a new id each time, never the stored one', async () => {
+    // Echoing the stored account's id would give the same id on every call for
+    // that address, and two calls would show the address is taken.
+    await existingMember('pending@test.example.com', { verified: false });
+    const a = await register({ email: 'pending@test.example.com', password: PASSWORD });
+    const b = await register({ email: 'pending@test.example.com', password: PASSWORD });
+    expect(a.body.id).not.toBe(b.body.id);
   });
 
   it('treats a differently-cased address as the same taken address', async () => {
@@ -194,6 +199,107 @@ describe('register', () => {
     const res = await register({ email: 'fresh@test.example.com', password: PASSWORD });
     expect(res.status).toBe(500);
     expect(await User.countDocuments({})).toBe(0);
+  });
+});
+
+// The token as the real recipient gets it: from the link in the email.
+const tokenFromEmail = (mail) => {
+  const match = /verify-email\?token=([^"&<\s]+)/.exec(mail.html);
+  if (!match) throw new Error('no verification link in the email');
+  return decodeURIComponent(match[1]);
+};
+const verify = (token, password) => request(app).post('/api/auth/verify-email').send({ token, password });
+const login = (email, password) => request(app).post('/api/auth/login').send({ email, password });
+
+describe('verify-email asks for the password chosen at registration', () => {
+  const VICTIM = 'resident@test.example.com';
+  const STRANGER_PW = 'stranger-password-1';
+  const OWNER_PW = 'owner-password-12345';
+
+  it('does not let the owner, clicking a genuine link, activate an account a stranger opened', async () => {
+    // Pre-hijacking: the stranger registers first, with the resident's address.
+    await register({ email: VICTIM, password: STRANGER_PW, name: 'Stranger' });
+    const strangersLink = tokenFromEmail(sent[0]);
+
+    // The resident clicks the link and types their own password: refused.
+    expect((await verify(strangersLink, OWNER_PW)).status).toBe(403);
+    const stillPending = await User.findOne({ email: VICTIM });
+    expect(stillPending.emailVerified).toBe(false);
+
+    // The resident registers themselves: this replaces the stranger's attempt.
+    await register({ email: VICTIM, password: OWNER_PW, name: 'Resident' });
+    const ownersLink = tokenFromEmail(sent[1]);
+    // The stranger's link is now dead, even with the stranger's password.
+    expect((await verify(strangersLink, STRANGER_PW)).status).toBe(400);
+
+    expect((await verify(ownersLink, OWNER_PW)).status).toBe(200);
+    expect((await login(VICTIM, STRANGER_PW)).status).toBe(401);
+    expect((await login(VICTIM, OWNER_PW)).status).toBe(200);
+    expect((await User.findOne({ email: VICTIM })).name).toBe('Resident');
+  });
+
+  // The two races the security review found (24.11.2026). Each forces the
+  // interleaving: the second request runs inside the first one's gap.
+
+  it('a registration while verify-email checks the password does not verify the new password', async () => {
+    await register({ email: VICTIM, password: OWNER_PW, name: 'Resident' });
+    const ownersLink = tokenFromEmail(sent[0]);
+    const realCompare = bcrypt.compare.bind(bcrypt);
+    jest.spyOn(bcrypt, 'compare').mockImplementationOnce(async (...args) => {
+      // Between verify-email's lookup and its write: the stranger registers.
+      expect((await register({ email: VICTIM, password: STRANGER_PW, name: 'Stranger' })).status).toBe(201);
+      return realCompare(...args);
+    });
+
+    const res = await verify(ownersLink, OWNER_PW);
+
+    // The owner's link died with the replacement; nothing is verified.
+    expect(res.status).toBe(400);
+    expect((await User.findOne({ email: VICTIM })).emailVerified).toBe(false);
+    expect((await login(VICTIM, STRANGER_PW)).status).toBe(403); // unverified, not 200
+  });
+
+  it('a verification while a registration replaces the account leaves the verified password', async () => {
+    await register({ email: VICTIM, password: OWNER_PW, name: 'Resident' });
+    const ownersLink = tokenFromEmail(sent[0]);
+    sent = [];
+    const realUpdate = User.findOneAndUpdate.bind(User);
+    jest.spyOn(User, 'findOneAndUpdate').mockImplementationOnce(async (...args) => {
+      // register() has read the account as pending; the owner verifies now.
+      expect((await verify(ownersLink, OWNER_PW)).status).toBe(200);
+      return realUpdate(...args);
+    });
+
+    expect((await register({ email: VICTIM, password: STRANGER_PW, name: 'Stranger' })).status).toBe(201);
+
+    const account = await User.findOne({ email: VICTIM });
+    expect(account.emailVerified).toBe(true);
+    expect(account.name).toBe('Resident');
+    expect((await login(VICTIM, STRANGER_PW)).status).toBe(401);
+    expect((await login(VICTIM, OWNER_PW)).status).toBe(200);
+    // The stranger's attempt was answered as for the verified account it now is.
+    expect(sent.map((m) => m.subject)).toEqual([SUBJECT_EXISTS]);
+  });
+
+  it('keeps the link usable after a wrong password, so a typo is not fatal', async () => {
+    await register({ email: VICTIM, password: OWNER_PW });
+    const token = tokenFromEmail(sent[0]);
+
+    expect((await verify(token, 'wrong-password-999')).status).toBe(403);
+    const ok = await verify(token, OWNER_PW);
+    expect(ok.status).toBe(200);
+    expect(ok.body.emailVerified).toBe(true);
+  });
+
+  it('refuses a link sent without a password, and leaves the account unverified', async () => {
+    await register({ email: VICTIM, password: OWNER_PW });
+    const token = tokenFromEmail(sent[0]);
+
+    const res = await request(app).post('/api/auth/verify-email').send({ token });
+    expect(res.status).toBe(400);
+    expect((await User.findOne({ email: VICTIM })).emailVerified).toBe(false);
+    // And the link still works afterwards.
+    expect((await verify(token, OWNER_PW)).status).toBe(200);
   });
 });
 
@@ -268,7 +374,7 @@ describe('the mail caps', () => {
     for (let i = 0; i < 25; i++) await resend('nobody@test.example.com');
     const verify = await request(app)
       .post('/api/auth/verify-email')
-      .send({ token: 'f'.repeat(64) });
+      .send({ token: 'f'.repeat(64), password: PASSWORD });
     expect(verify.status).toBe(400);
     // Nor the per-caller budget: the 22 turned away for that one address never
     // reached it, so another address can still be served.
