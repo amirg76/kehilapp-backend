@@ -3,7 +3,7 @@
  *
  * The whole flow end to end against a real (in-memory) MongoDB:
  *   register → account exists but is unverified
- *   login before verify → 403 (credentials fine, address unconfirmed)
+ *   login before verify → 401, the same as a wrong password
  *   verify-email with the emailed token → account verified
  *   login after verify → 200 with a token
  *   register the same email again → the same 201, and still one account
@@ -62,12 +62,15 @@ describe('self-registration', () => {
     expect(stored.emailVerificationTokenHash).not.toBe(res.body.verificationToken);
   });
 
-  it('rejects login before verification with 403', async () => {
+  it('rejects login before verification exactly like a wrong password (401)', async () => {
+    // Not a 403 "not verified" any more (25.11.2026): that told a stranger who
+    // is a verified member (see accountEnumeration.int.test.js).
     await register({ email: EMAIL, password: PASSWORD });
     const res = await login(EMAIL, PASSWORD);
+    const wrong = await login(EMAIL, 'not-the-password-1');
 
-    expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/verif/i); // a clear, actionable message
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual(wrong.body);
   });
 
   it('verifies the email and then allows login', async () => {

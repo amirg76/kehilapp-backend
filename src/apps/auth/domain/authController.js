@@ -90,23 +90,20 @@ export const login = async (req, res, next) => {
   const hash = typeof stored === 'string' && stored.length === BCRYPT_HASH_LENGTH ? stored : await dummyPasswordHash();
   const passwordMatches = await bcrypt.compare(password, hash);
 
-  // One generic error for both cases — never reveal which half was wrong.
-  if (!user || !passwordMatches) {
+  // One generic error for every refusal: no such address, wrong password, and
+  // an address never verified.
+  //
+  // THE LAST ONE USED TO BE A 403 "Email not verified" (until 25.11.2026), and
+  // that told a stranger who is a verified member. Register with the address
+  // and a password of your own, then log in with that password: a new or
+  // pending address now holds your password and answered 403; a verified
+  // member's account is untouched by register (authController.register) and
+  // answered 401. One register and one login per address, no email to the
+  // owner needed. The 403 was there so a real owner would know to check their
+  // inbox; the login page now offers "send the verification email again" on
+  // every refusal instead, and that answer is the same for every address.
+  if (!user || !passwordMatches || !user.emailVerified) {
     return next(unauthorized());
-  }
-
-  // Credentials are correct but the address was never confirmed. This check runs
-  // AFTER the password check on purpose: revealing "email not verified" before
-  // proving the password would tell an attacker the address is registered. A
-  // clear 403 (not the generic 401) so a real owner knows to check their inbox.
-  if (!user.emailVerified) {
-    return next(
-      new AppError(
-        'Email not verified. Please verify your email address before signing in.',
-        errorManagement.commonErrors.authorizationError.code,
-        true,
-      ),
-    );
   }
 
   // The auth middleware requires both claims; a token missing `role` is rejected.

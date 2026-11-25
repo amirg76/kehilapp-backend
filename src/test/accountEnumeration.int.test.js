@@ -256,7 +256,7 @@ describe('verify-email asks for the password chosen at registration', () => {
     // The owner's link died with the replacement; nothing is verified.
     expect(res.status).toBe(400);
     expect((await User.findOne({ email: VICTIM })).emailVerified).toBe(false);
-    expect((await login(VICTIM, STRANGER_PW)).status).toBe(403); // unverified, not 200
+    expect((await login(VICTIM, STRANGER_PW)).status).toBe(401); // unverified, not 200
   });
 
   it('a verification while a registration replaces the account leaves the verified password', async () => {
@@ -300,6 +300,29 @@ describe('verify-email asks for the password chosen at registration', () => {
     expect((await User.findOne({ email: VICTIM })).emailVerified).toBe(false);
     // And the link still works afterwards.
     expect((await verify(token, OWNER_PW)).status).toBe(200);
+  });
+});
+
+describe('login after register', () => {
+  it('does not tell a verified member from a pending or a new address', async () => {
+    // The security review's oracle (24.11.2026): register with the address and
+    // a password of your own, then log in with it. Register leaves a verified
+    // account alone (401) but sets the password on a pending or new one, and
+    // login answered those 403 "not verified".
+    const ATTACKER_PW = 'attacker-password-1';
+    await existingMember('member@test.example.com');
+    await existingMember('pending@test.example.com', { verified: false });
+
+    const answers = {};
+    for (const email of ['member@test.example.com', 'pending@test.example.com', 'new@test.example.com']) {
+      expect((await register({ email, password: ATTACKER_PW })).status).toBe(201);
+      const res = await login(email, ATTACKER_PW);
+      answers[email] = { status: res.status, body: res.body };
+    }
+
+    expect(answers['member@test.example.com'].status).toBe(401);
+    expect(answers['pending@test.example.com']).toEqual(answers['member@test.example.com']);
+    expect(answers['new@test.example.com']).toEqual(answers['member@test.example.com']);
   });
 });
 
