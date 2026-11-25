@@ -39,6 +39,23 @@ const userSchema = new Schema(
     // forgotten link should not stay usable forever.
     emailVerificationExpires: { type: Date, select: false },
 
+    // "Forgot password" (25.11.2026). Same shape as the verification token: only
+    // the SHA-256 of the emailed token is stored, it expires, and it is out of
+    // every ordinary query.
+    passwordResetTokenHash: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
+
+    // Bumped by every password reset. Login puts it in the session token, and
+    // the auth middleware refuses a token whose number is not the current one,
+    // so a reset also logs out whoever else was signed in. A counter, not a
+    // timestamp: a token's issue time is in whole seconds, so a time compare
+    // either keeps a session opened in the same second as the reset or refuses
+    // a login made right after it. Not secret: the ordinary lookup reads it.
+    // Default 0, which is also what a token signed before this field reads as.
+    passwordVersion: { type: Number, default: 0 },
+    // When the password last changed through a reset (for the record).
+    passwordChangedAt: { type: Date },
+
     // Verified is not the same as trusted. Verifying an email proves the caller
     // controls that address — nothing more. Belonging to the community is a
     // human admission decision, so an admin approves an account explicitly

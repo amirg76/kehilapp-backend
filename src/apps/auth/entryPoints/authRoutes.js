@@ -4,6 +4,8 @@ import {
   registerValidation,
   verifyEmailValidation,
   resendVerificationValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
 } from './authValidation.js';
 import * as authController from '../domain/authController.js';
 import auth from '../../../middlewares/auth.js';
@@ -36,6 +38,20 @@ router.post(
   mailSendLimiter,
   authController.resendVerification,
 );
+
+// "Forgot password" (25.11.2026). Public for the same reason as the routes
+// above: the caller cannot log in, that is the point. forgot-password emails
+// an address the caller typed, so it carries the same mail caps, in the same
+// order. reset-password needs the emailed token and is throttled by
+// registerLimiter in app.js.
+router.post(
+  '/forgot-password',
+  forgotPasswordValidation,
+  mailRecipientLimiter,
+  mailSendLimiter,
+  authController.forgotPassword,
+);
+router.post('/reset-password', resetPasswordValidation, authController.resetPassword);
 
 // Who am I? Authenticated by definition — this is the only way a client holding
 // an httpOnly session cookie can discover the identity inside it (see the

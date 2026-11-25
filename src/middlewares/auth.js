@@ -4,6 +4,7 @@ import AppError from '../errors/AppError.js';
 import { getUserFromDb } from '../apps/users/dataAccess/userRepository.js';
 import { getJwtSecret } from '../config/env.js';
 import { AUTH_COOKIE } from '../config/cookies.js';
+import { isCurrentSession } from './sessionVersion.js';
 
 const { verify } = pkg;
 
@@ -63,6 +64,15 @@ const auth = async (req, res, next) => {
     // The token can outlive the account it names, so confirm the user still exists.
     const user = await getUserFromDb(userId);
     if (!user) return next(throwUnauthorizedError());
+
+    // A password reset ends every session signed before it (25.11.2026): the
+    // reason to reset is often that someone else got in, and their 12-hour
+    // token must not outlive the new password. Each reset bumps
+    // passwordVersion; a token carries the number it was signed with (`pwv`).
+    // Shared with optionalAuth.js (see sessionVersion.js).
+    if (!isCurrentSession(decoded, user)) {
+      return next(throwUnauthorizedError());
+    }
 
     req.userId = userId;
     // Role and approval BOTH come from the document, never from a JWT claim. The

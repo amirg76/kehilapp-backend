@@ -295,10 +295,56 @@ export const sendAccountExistsEmail = async ({ email }) => {
   });
 };
 
+/**
+ * "Forgot password" (25.11.2026): the link to set a new one. Sent only for a
+ * verified account, and the page that asked always says the same thing, so
+ * this email is the only place that learns whether the address is registered:
+ * the owner's inbox.
+ */
+export const buildPasswordResetLink = (token) => `${appBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+const PASSWORD_RESET_SUBJECT = 'איפוס הסיסמה שלך — קהילאפ';
+
+const passwordResetHtml = (
+  link,
+) => `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1e293b">
+  <h1 style="font-size:20px;margin:0 0 16px">איפוס סיסמה</h1>
+  <p style="margin:0 0 16px">ביקשו לאפס את הסיסמה לחשבון שלך בקהילאפ. כדי לבחור סיסמה חדשה:</p>
+  <p style="margin:0 0 24px"><a href="${link}" style="background:#0f766e;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">בחירת סיסמה חדשה</a></p>
+  <p style="margin:0 0 8px;font-size:14px;color:#475569">אם הכפתור אינו עובד, יש להעתיק את הכתובת הזו לדפדפן:</p>
+  <p style="margin:0 0 24px;font-size:14px;direction:ltr;text-align:right;word-break:break-all"><a href="${link}" style="color:#0f766e">${link}</a></p>
+  <p style="margin:0;font-size:14px;color:#475569">הקישור תקף לשעה אחת ולשימוש אחד. אחרי האיפוס, כל מי שמחובר לחשבון ינותק.</p>
+  <p style="margin:16px 0 0;font-size:14px;color:#475569">אם לא ביקשת לאפס סיסמה, אפשר להתעלם מהודעה זו. הסיסמה שלך לא השתנתה.</p>
+</div>`;
+
+const passwordResetText = (link) =>
+  [
+    'איפוס סיסמה',
+    '',
+    'ביקשו לאפס את הסיסמה לחשבון שלך בקהילאפ. כדי לבחור סיסמה חדשה:',
+    link,
+    '',
+    'הקישור תקף לשעה אחת ולשימוש אחד. אחרי האיפוס, כל מי שמחובר לחשבון ינותק.',
+    'אם לא ביקשת לאפס סיסמה, אפשר להתעלם מהודעה זו. הסיסמה שלך לא השתנתה.',
+  ].join('\n');
+
+/** Sends (or logs, with the token redacted outside development) a reset link. */
+export const sendPasswordResetEmail = async ({ email, token }) => {
+  const link = buildPasswordResetLink(token);
+  return deliver(email, link, {
+    kind: 'password-reset',
+    subject: PASSWORD_RESET_SUBJECT,
+    html: passwordResetHtml(link),
+    text: passwordResetText(link),
+  });
+};
+
 export default {
   sendVerificationEmail,
   sendAccountExistsEmail,
+  sendPasswordResetEmail,
   buildVerificationLink,
   buildLoginLink,
+  buildPasswordResetLink,
   assertVerificationLinkTarget,
 };

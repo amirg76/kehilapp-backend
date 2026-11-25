@@ -73,6 +73,8 @@ app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/register', registerLimiter);
 app.use('/api/auth/verify-email', registerLimiter);
 app.use('/api/auth/resend-verification', registerLimiter);
+app.use('/api/auth/forgot-password', registerLimiter);
+app.use('/api/auth/reset-password', registerLimiter);
 app.use('/api/auth', authRoutes);
 
 app.all('*', (req, res, next) => {

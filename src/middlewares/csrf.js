@@ -18,6 +18,9 @@ const EXEMPT_PATHS = new Set([
   '/api/auth/register',
   '/api/auth/verify-email',
   '/api/auth/resend-verification',
+  // "Forgot password": the caller cannot log in, so has no session to forge.
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
 ]);
 
 /**

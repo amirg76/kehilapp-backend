@@ -4,6 +4,7 @@ import errorManagement from '../errors/utils/errorManagement.js';
 import { getUserFromDb } from '../apps/users/dataAccess/userRepository.js';
 import { getJwtSecret } from '../config/env.js';
 import { AUTH_COOKIE } from '../config/cookies.js';
+import { isCurrentSession } from './sessionVersion.js';
 
 const { verify } = pkg;
 
@@ -59,6 +60,9 @@ const optionalAuth = async (req, res, next) => {
     // The token can outlive the account it names; an orphaned token stays anonymous.
     const user = await getUserFromDb(userId);
     if (!user) return next();
+
+    // A session signed before a password reset is over here too: anonymous.
+    if (!isCurrentSession(decoded, user)) return next();
 
     req.userId = userId;
     // Same reasoning as the strict middleware: role and approval are read from the

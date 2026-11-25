@@ -11,12 +11,14 @@ import {
   getUserByVerificationTokenHashFromDb,
   markEmailVerifiedInDb,
   replacePendingRegistrationInDb,
+  setPasswordResetTokenInDb,
+  resetPasswordWithTokenInDb,
   getUserFromDb,
 } from '../../users/dataAccess/userRepository.js';
 import { getJwtSecret } from '../../../config/env.js';
 import crypto from 'crypto';
 import logger from '../../../services/logger.js';
-import { sendVerificationEmail, sendAccountExistsEmail } from '../../../services/mailer.js';
+import { sendVerificationEmail, sendAccountExistsEmail, sendPasswordResetEmail } from '../../../services/mailer.js';
 import { mayExposeVerificationLink } from '../../../config/environment.js';
 import { AUTH_COOKIE, CSRF_COOKIE, authCookieOptions, csrfCookieOptions } from '../../../config/cookies.js';
 
@@ -107,7 +109,9 @@ export const login = async (req, res, next) => {
   }
 
   // The auth middleware requires both claims; a token missing `role` is rejected.
-  const token = sign({ id: user.id, role: user.role }, getJwtSecret(), {
+  // `pwv`: the password version this session belongs to; a reset bumps it and
+  // the middleware then refuses this token (see middlewares/auth.js).
+  const token = sign({ id: user.id, role: user.role, pwv: user.passwordVersion ?? 0 }, getJwtSecret(), {
     expiresIn: TOKEN_TTL,
     algorithm: 'HS256',
   });
@@ -376,4 +380,57 @@ export const resendVerification = async (req, res) => {
     message: 'If the address exists and is unverified, a verification email has been sent.',
     ...(devHint || {}),
   });
+};
+
+// A reset link is meant to be used now, by someone holding the inbox: an hour.
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+
+/** The work behind "forgot password", done after the answer has gone out. */
+const startPasswordReset = async (email) => {
+  const user = await getUserByEmailFromDb(email);
+  // Only a verified account. A pending one needs no reset: registering again
+  // replaces it (see register). Unknown address: nothing at all.
+  if (!user || user.emailVerified !== true) return;
+  const token = crypto.randomBytes(32).toString('hex');
+  const stored = await setPasswordResetTokenInDb(user._id, {
+    passwordResetTokenHash: sha256(token),
+    passwordResetExpires: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+  });
+  if (stored) await sendPasswordResetEmail({ email: user.email, token });
+};
+
+/**
+ * "Forgot password" (25.11.2026). Always the same 200 and the same body, and it
+ * answers BEFORE anything is looked up or sent: the same rule as
+ * resend-verification, where waiting for the mail provider told a stranger who
+ * is registered by the clock alone. The mail caps sit on the route.
+ *
+ * Never a token in the body, not even in development: a reset link changes a
+ * password, and there is no flow that needs one without the inbox.
+ */
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  startPasswordReset(email).catch((err) => logger.error(`[auth] forgot-password failed: ${err.name}`));
+  return res.status(200).json({
+    ok: true,
+    message: 'If the address belongs to a verified account, a password reset link has been sent.',
+  });
+};
+
+/**
+ * Sets a new password from the emailed link. The password is hashed BEFORE the
+ * token is looked up, so a bad link costs the same time as a good one.
+ *
+ * The token check, the new password and spending the token are one conditional
+ * write (resetPasswordWithTokenInDb): a link works once, and two requests with
+ * it cannot both succeed. passwordChangedAt ends every earlier session.
+ */
+export const resetPassword = async (req, res, next) => {
+  const { token, password } = req.body;
+  const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+  const user = await resetPasswordWithTokenInDb(sha256(token), passwordHash);
+  if (!user) {
+    return next(new AppError('Invalid or expired reset token.', errorManagement.commonErrors.badRequest.code, true));
+  }
+  return res.status(200).json({ ok: true });
 };

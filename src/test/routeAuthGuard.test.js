@@ -46,6 +46,10 @@ const PUBLIC_ROUTES = [
   'POST /api/auth/register',
   'POST /api/auth/verify-email',
   'POST /api/auth/resend-verification',
+  // "Forgot password": the caller cannot log in, that is the point. One takes
+  // an address and always answers the same; the other needs the emailed token.
+  'POST /api/auth/forgot-password',
+  'POST /api/auth/reset-password',
   // Health probes: a check that needs a token fails exactly when needed most.
   'GET /healthz',
   'GET /readyz',
@@ -94,14 +98,16 @@ const ADMIN_ONLY_ROUTES = [
  */
 const MEMBERSHIP_EXEMPT_WRITES = [
   'POST /api/auth/logout',
-  // The four public writes, repeated here on purpose (rule 4). Each is a write by
-  // someone who has no membership yet and by definition cannot have one: signing
-  // in, creating the account, activating it from the emailed link, or asking for
-  // that link again.
+  // The public writes, repeated here on purpose (rule 4). Each is a write by
+  // someone who has no membership yet or cannot sign in: signing in, creating
+  // the account, activating it from the emailed link, asking for that link
+  // again, or resetting a forgotten password.
   'POST /api/auth/login',
   'POST /api/auth/register',
   'POST /api/auth/verify-email',
   'POST /api/auth/resend-verification',
+  'POST /api/auth/forgot-password',
+  'POST /api/auth/reset-password',
 ];
 
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH'];

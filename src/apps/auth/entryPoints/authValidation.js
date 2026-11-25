@@ -33,6 +33,21 @@ export const verifyEmailValidation = celebrate({
   }),
 });
 
+export const forgotPasswordValidation = celebrate({
+  [Segments.BODY]: Joi.object().keys({
+    email: Joi.string().email().required(),
+  }),
+});
+
+export const resetPasswordValidation = celebrate({
+  [Segments.BODY]: Joi.object().keys({
+    // A real token is 64 hex characters; same ceiling as verify-email.
+    token: Joi.string().max(256).required(),
+    // The NEW password: the same rule as registration.
+    password: Joi.string().min(8).max(128).required(),
+  }),
+});
+
 export const resendVerificationValidation = celebrate({
   [Segments.BODY]: Joi.object().keys({
     email: Joi.string().email().required(),

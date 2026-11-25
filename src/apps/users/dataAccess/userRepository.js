@@ -140,6 +140,42 @@ export const replacePendingRegistrationInDb = async (
   );
 
 /**
+ * Stores a password-reset token for a VERIFIED account. Returns true if it did.
+ * An account that is not verified gets none: its owner can simply register
+ * again, which replaces a pending registration (authController.register).
+ */
+export const setPasswordResetTokenInDb = async (userId, { passwordResetTokenHash, passwordResetExpires }) => {
+  const result = await UserModel.updateOne(
+    { _id: userId, emailVerified: true },
+    { $set: { passwordResetTokenHash, passwordResetExpires } },
+  );
+  return result.modifiedCount === 1;
+};
+
+/**
+ * Sets a new password from a reset token, in one conditional update: only a
+ * verified account holding this unexpired token, and the token is spent in the
+ * same write, so two requests with one link cannot both succeed. Bumps
+ * passwordVersion, which ends every session signed before it (middlewares/
+ * auth.js). Returns the account, or null if the token is not (or no longer)
+ * good.
+ */
+export const resetPasswordWithTokenInDb = async (tokenHash, passwordHash) =>
+  UserModel.findOneAndUpdate(
+    {
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpires: { $gt: new Date() },
+      emailVerified: true,
+    },
+    {
+      $set: { passwordHash, passwordChangedAt: new Date() },
+      $inc: { passwordVersion: 1 },
+      $unset: { passwordResetTokenHash: 1, passwordResetExpires: 1 },
+    },
+    { new: true },
+  );
+
+/**
  * Marks the account verified, only if it still holds this unexpired token
  * (a registration in between replaces the token, along with the password the
  * caller just checked). Returns true if it did.
